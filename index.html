@@ -744,6 +744,9 @@ function updateAltReadout(){
 document.getElementById('alt').addEventListener('input',updateAltReadout);
 document.getElementById('run').addEventListener('click',computeAll);
 document.addEventListener('keydown',e=>{ if(e.key==="Enter") computeAll(); });
+// initial visibility: default atmosphere mode is "altitude" -> hide manual T,p
+document.getElementById('tField').style.display='none';
+document.getElementById('pField').style.display='none';
 updateAltReadout();
 computeAll();   // run once on load with thesis defaults
 </script>
