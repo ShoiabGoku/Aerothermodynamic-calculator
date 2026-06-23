@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aerothermodynamics Calculator — Freestream to Surface (Ideal · Real · 3/4/5-Species Air)</title>
+<style>
+  :root{
+    --bg:#0a0e17; --panel:#121826; --panel2:#0e1420; --line:#223049;
+    --txt:#e6edf6; --muted:#8aa0bd; --accent:#3da9fc; --accent2:#7bdff2;
+    --hot:#ff7849; --good:#43d9a3; --warn:#ffd166; --bad:#ff5d73;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 70% -10%,#13243f 0%,var(--bg) 55%);
+       color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+  header{padding:22px 26px 14px;border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.2px}
+  header p{margin:5px 0 0;color:var(--muted);font-size:13px;max-width:980px}
+  .wrap{display:grid;grid-template-columns:340px 1fr;gap:0;align-items:start}
+  @media(max-width:1000px){.wrap{grid-template-columns:1fr}}
+  .controls{padding:18px 20px;border-right:1px solid var(--line);position:sticky;top:0;max-height:100vh;overflow:auto}
+  .results{padding:18px 22px;min-width:0}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent2);margin:18px 0 8px;font-weight:700}
+  h2:first-child{margin-top:2px}
+  .field{margin-bottom:11px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+  .field .row{display:flex;gap:6px;align-items:center}
+  input[type=number],select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+       border-radius:7px;padding:8px 9px;font-family:var(--mono);font-size:13px}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .unit{color:var(--muted);font-family:var(--mono);font-size:11px;min-width:42px}
+  .seg{display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{flex:1;background:var(--panel2);border:0;color:var(--muted);padding:7px 4px;font-size:12px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:#06223a;font-weight:700}
+  .checks{display:flex;flex-direction:column;gap:6px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;cursor:pointer;background:var(--panel2)}
+  .chk input{accent-color:var(--accent);width:15px;height:15px}
+  .chk .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .btn{width:100%;margin-top:14px;background:linear-gradient(180deg,#3da9fc,#1f7fd6);border:0;color:#02192e;
+       font-weight:800;letter-spacing:.4px;padding:12px;border-radius:9px;cursor:pointer;font-size:14px}
+  .btn:hover{filter:brightness(1.07)}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .card h3{margin:0 0 4px;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+  .stat .k{font-size:11px;color:var(--muted)}
+  .stat .v{font-family:var(--mono);font-size:16px;margin-top:2px}
+  .stat .v small{font-size:11px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--accent2);font-size:11px;text-transform:uppercase;letter-spacing:.6px;position:sticky;top:0;background:var(--panel)}
+  tbody tr:hover{background:#0f1726}
+  td.num{font-family:var(--mono)}
+  .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+  details{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:12px;background:var(--panel2)}
+  summary{cursor:pointer;font-weight:600;color:var(--accent2)}
+  details p,details li{font-size:12.5px;color:var(--muted)}
+  code{font-family:var(--mono);background:#0c1422;padding:1px 5px;border-radius:4px;color:var(--accent2);font-size:12px}
+  .regimebar{display:flex;gap:0;border-radius:8px;overflow:hidden;margin-top:6px;border:1px solid var(--line)}
+  .regimebar div{flex:1;text-align:center;font-size:11px;padding:5px 2px;color:var(--muted);background:var(--panel2)}
+  .regimebar div.on{color:#02192e;font-weight:800}
+  .foot{padding:16px 26px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+  .warnbox{border:1px solid var(--warn);background:#241f0c;color:#ffe49a;border-radius:9px;padding:9px 12px;font-size:12.5px;margin-bottom:12px}
+  .barcell{position:relative}
+  .barcell span{position:relative;z-index:1}
+  .barcell i{position:absolute;left:0;top:0;bottom:0;background:#1d3a5f;border-radius:3px;z-index:0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Aerothermodynamics Calculator <span class="muted" style="font-weight:400">· Freestream → Shock → Surface</span></h1>
+  <p>Enter freestream conditions; the tool computes stagnation temperature/pressure, post-shock state, shock stand-off, surface
+     pressure &amp; static temperature vs. wall curvature, and stagnation heat flux — solved in parallel for
+     <b>ideal gas</b>, <b>thermally-perfect real gas</b>, and <b>3-, 4- and 5-species equilibrium air</b>. Valid subsonic → hypersonic.</p>
+</header>
+
+<div class="wrap">
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls">
+    <h2>Freestream input</h2>
+
+    <div class="field">
+      <label>Specify velocity by</label>
+      <div class="seg" id="velMode">
+        <button data-m="mach" class="on">Mach M∞</button>
+        <button data-m="vel">Velocity V∞</button>
+      </div>
+    </div>
+
+    <div class="field" id="machField">
+      <label>Freestream Mach number M∞</label>
+      <div class="row"><input id="mach" type="number" step="0.1" value="15"><span class="unit">—</span></div>
+    </div>
+    <div class="field" id="velField" style="display:none">
+      <label>Freestream velocity V∞</label>
+      <div class="row"><input id="vel" type="number" step="50" value="5000"><span class="unit">m/s</span></div>
+    </div>
+
+    <div class="field">
+      <label>Set atmosphere by</label>
+      <div class="seg" id="atmMode">
+        <button data-m="alt" class="on">Altitude (US Std 76)</button>
+        <button data-m="manual">Manual T,p</button>
+      </div>
+    </div>
+
+    <div class="field" id="altField">
+      <label>Geometric altitude</label>
+      <div class="row"><input id="alt" type="number" step="1" value="50"><span class="unit">km</span></div>
+      <div class="hint" id="altReadout"></div>
+    </div>
+
+    <div class="field" id="tField">
+      <label>Static temperature T∞</label>
+      <div class="row"><input id="temp" type="number" step="1" value="270"><span class="unit">K</span></div>
+    </div>
+    <div class="field" id="pField">
+      <label>Static pressure p∞</label>
+      <div class="row"><input id="pres" type="number" step="1" value="79"><span class="unit">Pa</span></div>
+    </div>
+
+    <h2>Body geometry</h2>
+    <div class="field">
+      <label>Nose / leading-edge radius R<sub>n</sub></label>
+      <div class="row"><input id="rn" type="number" step="1" value="25"><span class="unit">mm</span></div>
+    </div>
+    <div class="field">
+      <label>Body type (stand-off &amp; heating)</label>
+      <select id="bodyType">
+        <option value="sphere">Sphere / axisymmetric nose</option>
+        <option value="cylinder">2-D cylinder / swept edge</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Wall temperature T<sub>w</sub></label>
+      <div class="row"><input id="tw" type="number" step="10" value="300"><span class="unit">K</span></div>
+    </div>
+
+    <h2>Models to compute</h2>
+    <div class="checks" id="models">
+      <label class="chk"><input type="checkbox" value="ideal" checked><span class="sw" style="background:#9aa7bd"></span>Ideal gas (γ=1.4 const Cp)</label>
+      <label class="chk"><input type="checkbox" value="real" checked><span class="sw" style="background:#7bdff2"></span>Real gas (thermally perfect)</label>
+      <label class="chk"><input type="checkbox" value="s3" checked><span class="sw" style="background:#43d9a3"></span>3-species (O₂,O,N₂)</label>
+      <label class="chk"><input type="checkbox" value="s4" checked><span class="sw" style="background:#ffd166"></span>4-species (+N)</label>
+      <label class="chk"><input type="checkbox" value="s5" checked><span class="sw" style="background:#ff7849"></span>5-species (+NO)</label>
+    </div>
+
+    <h2>Wall catalycity (heat flux)</h2>
+    <div class="field">
+      <select id="catal">
+        <option value="noncat">Non-catalytic wall</option>
+        <option value="supercat">Super-catalytic (heating upper bound)</option>
+      </select>
+      <div class="hint">Affects the Fay–Riddell dissociation-energy term.</div>
+    </div>
+
+    <button class="btn" id="run">Compute ▸</button>
+    <div class="hint" id="loadBtn" style="margin-top:8px">Tip: defaults reproduce your M∞≈15, 50 km thesis case.</div>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div class="results" id="out">
+    <div class="card"><h3>Press “Compute” to run.</h3>
+      <p class="muted small">All five models solve the <i>same</i> conservation-based normal-shock (frozen for ideal/real, chemical
+      equilibrium for 3/4/5-species) so every difference is physics, not numerics — mirroring the fixed-Mach fidelity ladder.</p></div>
+  </div>
+</div>
+
+<div class="foot">
+  Models: perfect gas (Anderson, <i>Modern Compressible Flow</i>); thermally-perfect air with vibrational excitation; equilibrium air via
+  statistical-thermodynamic dissociation constants (Vincenti &amp; Kruger; Anderson, <i>Hypersonic &amp; High-Temperature Gas Dynamics</i>, Ch. 11).
+  Heat flux: Fay–Riddell (1958) &amp; Sutton–Graves (NASA TR R-376). Stand-off: Billig (1967). Surface pressure: modified Newtonian.
+  <br>For verification / education — not a substitute for converged CFD. See “Assumptions &amp; validity” below the results.
+</div>
+
+<script>
+"use strict";
+/* =========================================================================
+   PHYSICAL CONSTANTS
+   ========================================================================= */
+const Ru   = 8.314462618;     // J/mol/K  universal gas constant
+const kB   = 1.380649e-23;    // J/K
+const hPl  = 6.62607015e-34;  // J s
+const NA   = 6.02214076e23;   // 1/mol
+const R_air= 287.05;          // J/kg/K   (perfect-air, ideal model)
+const GAM  = 1.4;             // ideal-gas ratio of specific heats
+const CP_AIR_IDEAL = 1006.0;  // J/kg/K   (ideal model, matches thesis case 1)
+const Tref = 298.15;          // K  enthalpy reference
+
+/* =========================================================================
+   SPECIES THERMODYNAMIC DATA
+   Molecular constants (characteristic temperatures, ground electronic
+   degeneracies) + standard formation enthalpies.  Dissociation energies are
+   derived FROM the formation enthalpies so Kp(T) and h(T) are mutually
+   consistent (no double-book-keeping of bond energy).
+   M  : kg/mol ; thv,thr : K ; sig : symmetry ; ge : electronic degeneracy
+   hf : J/mol (standard enthalpy of formation at 298.15 K)
+   ========================================================================= */
+const SP = {
+  O2:{M:0.0319988, mol:true,  thv:2273.6, thr:2.079, sig:2, ge:3, hf:0      },
+  N2:{M:0.0280134, mol:true,  thv:3393.5, thr:2.884, sig:2, ge:1, hf:0      },
+  NO:{M:0.0300061, mol:true,  thv:2739.0, thr:2.452, sig:1, ge:4, hf:90290  },
+  O :{M:0.0159994, mol:false,                        ge:9, hf:249170 },
+  N :{M:0.0140067, mol:false,                        ge:4, hf:472680 }
+};
+// Dissociation energies (J/mol) from formation enthalpies (0 K ≈ 298 K here):
+const D_O2 = 2*SP.O.hf - SP.O2.hf;              // O2 -> 2O   (498 340)
+const D_N2 = 2*SP.N.hf - SP.N2.hf;              // N2 -> 2N   (945 360)
+const D_NO = SP.N.hf + SP.O.hf - SP.NO.hf;      // NO -> N+O  (631 560)
+// Air elemental atom ratio N:O (from 21% O2 / 79% N2 by mole):
+const xO2_air = 0.21, xN2_air = 0.79;
+const ATOM_NO_RATIO = (2*xN2_air)/(2*xO2_air);  // = 3.7619
+
+/* ---- per-species molar enthalpy h_i(T)  [J/mol], ref 298.15 K ---- */
+function hSpecies(s, T){
+  const d = SP[s];
+  if(!d.mol){                                   // atom: translational only
+    return d.hf + 2.5*Ru*(T - Tref);
+  }
+  const vib = th => d.thv/(Math.exp(d.thv/th)-1);
+  return d.hf + 3.5*Ru*(T - Tref) + Ru*(vib(T) - vib(Tref)); // trans+rot+vib
+}
+/* ---- per-species molar Cp(T) [J/mol/K] ---- */
+function cpSpecies(s, T){
+  const d = SP[s];
+  if(!d.mol) return 2.5*Ru;
+  const x = d.thv/T, ex = Math.exp(x);
+  return 3.5*Ru + Ru*x*x*ex/((ex-1)*(ex-1));
+}
+/* ---- partition function per unit volume (1/m^3) ---- */
+function qVol(s, T){
+  const d = SP[s];
+  const m = d.M/NA;                                       // kg per particle
+  const qt = Math.pow(2*Math.PI*m*kB*T/(hPl*hPl), 1.5);   // translational
+  if(!d.mol) return qt*d.ge;
+  const qr = T/(d.sig*d.thr);
+  const qv = 1/(1-Math.exp(-d.thv/T));
+  return qt*qr*qv*d.ge;
+}
+/* ---- equilibrium constants Kp(T) in Pa for dissociation reactions ----
+   A2 ⇌ 2A :  Kp = (qA^2/qA2)·kT·exp(-D/kT)   [pA^2/pA2]
+   NO ⇌ N+O:  Kp = (qN qO/qNO)·kT·exp(-D/kT)  [pN pO/pNO]            */
+function Kp_O2(T){ return qVol("O",T)**2/qVol("O2",T)*kB*T*Math.exp(-D_O2/(NA*kB*T)); }
+function Kp_N2(T){ return qVol("N",T)**2/qVol("N2",T)*kB*T*Math.exp(-D_N2/(NA*kB*T)); }
+function Kp_NO(T){ return qVol("N",T)*qVol("O",T)/qVol("NO",T)*kB*T*Math.exp(-D_NO/(NA*kB*T)); }
+
+/* =========================================================================
+   EQUILIBRIUM COMPOSITION at given (T,p) for a chosen species set.
+   Returns partial pressures (Pa) -> mole fractions, Mbar, density, h.
+   mode: "s3" O2/O/N2 (O2 dissoc only) ; "s4" +N ; "s5" +NO
+   ========================================================================= */
+function equilComposition(T, p, mode){
+  const KO = Kp_O2(T);
+  const r  = ATOM_NO_RATIO;
+  let pO2,pN2,pO=0,pN=0,pNO=0;
+
+  if(mode==="s3"){
+    // Only O2 ⇌ 2O ; N2 inert.  Solve 1-D for pO.
+    // pO2=pO^2/KO ;  pN2 = r*(2 pO2 + pO)/2 ;  Dalton: pO2+pO+pN2 = p
+    const f = pOx=>{ const po2=pOx*pOx/KO; const pn2=r*(2*po2+pOx)/2; return po2+pOx+pn2-p; };
+    pO = bisect(f, 0, p, 80);
+    pO2= pO*pO/KO;  pN2 = r*(2*pO2+pO)/2;
+  } else {
+    const KN = Kp_N2(T);
+    const KNO = (mode==="s5") ? Kp_NO(T) : Infinity; // Inf -> pNO=0
+    // unknowns pO,pN ; pO2=pO^2/KO, pN2=pN^2/KN, pNO=pO pN/KNO
+    // eqs:  Dalton(pO,pN)=0 ; ratio(pO,pN)=0
+    const comp = (pOx,pNx)=>{
+      const po2=pOx*pOx/KO, pn2=pNx*pNx/KN, pno=(KNO===Infinity)?0:pOx*pNx/KNO;
+      return {po2,pn2,pno};
+    };
+    const F = (pOx,pNx)=>{
+      const {po2,pn2,pno}=comp(pOx,pNx);
+      const dalton = po2+pn2+pOx+pNx+pno - p;
+      const Natoms = 2*pn2+pNx+pno, Oatoms = 2*po2+pOx+pno;
+      const ratio  = Natoms - r*Oatoms;
+      return [dalton, ratio];
+    };
+    // 2-D Newton with numerical Jacobian + damping, positive clamp.
+    let x=Math.max(1e-3*p,1e-4), y=Math.max(1e-3*p,1e-4);
+    for(let it=0; it<120; it++){
+      const f0=F(x,y);
+      const dx=Math.max(x*1e-6,1e-9), dy=Math.max(y*1e-6,1e-9);
+      const fx=F(x+dx,y), fy=F(x,y+dy);
+      const J=[[(fx[0]-f0[0])/dx,(fy[0]-f0[0])/dy],
+               [(fx[1]-f0[1])/dx,(fy[1]-f0[1])/dy]];
+      const det=J[0][0]*J[1][1]-J[0][1]*J[1][0];
+      if(Math.abs(det)<1e-300) break;
+      let sx=(-f0[0]*J[1][1]+f0[1]*J[0][1])/det;
+      let sy=(-f0[1]*J[0][0]+f0[0]*J[1][0])/det;
+      let lam=1; // line search to keep positive
+      while(lam>1e-4 && (x+lam*sx<=0 || y+lam*sy<=0)) lam*=0.5;
+      x+=lam*sx; y+=lam*sy;
+      x=Math.max(x,1e-30); y=Math.max(y,1e-30);
+      if(Math.abs(sx*lam)<1e-6*Math.max(x,1) && Math.abs(sy*lam)<1e-6*Math.max(y,1)) break;
+    }
+    pO=x; pN=y;
+    const c=comp(pO,pN); pO2=c.po2; pN2=c.pn2; pNO=c.pno;
+  }
+  // assemble
+  const parts={O2:pO2,N2:pN2,O:pO,N:pN,NO:pNO};
+  const psum=pO2+pN2+pO+pN+pNO;
+  const x={}, Y={}; let Mbar=0;
+  for(const s in parts){ x[s]=parts[s]/psum; Mbar+=x[s]*SP[s].M; }
+  for(const s in parts){ Y[s]=x[s]*SP[s].M/Mbar; }
+  const rho=p*Mbar/(Ru*T);
+  let h=0; for(const s in parts) h += Y[s]*hSpecies(s,T)/SP[s].M; // J/kg
+  return {x,Y,Mbar,rho,h,T,p};
+}
+
+/* frozen air (no dissociation): 21% O2 / 79% N2 by mole */
+function frozenAir(T,p){
+  const x={O2:xO2_air,N2:xN2_air,O:0,N:0,NO:0};
+  const Mbar=xO2_air*SP.O2.M+xN2_air*SP.N2.M;
+  const Y={O2:xO2_air*SP.O2.M/Mbar, N2:xN2_air*SP.N2.M/Mbar, O:0,N:0,NO:0};
+  const rho=p*Mbar/(Ru*T);
+  const h=Y.O2*hSpecies("O2",T)/SP.O2.M + Y.N2*hSpecies("N2",T)/SP.N2.M;
+  return {x,Y,Mbar,rho,h,T,p};
+}
+function frozenAirCp(T){ // J/kg/K
+  const Mbar=xO2_air*SP.O2.M+xN2_air*SP.N2.M;
+  const YO2=xO2_air*SP.O2.M/Mbar, YN2=xN2_air*SP.N2.M/Mbar;
+  return YO2*cpSpecies("O2",T)/SP.O2.M + YN2*cpSpecies("N2",T)/SP.N2.M;
+}
+
+/* root helpers */
+function bisect(f,a,b,n){
+  let fa=f(a), fb=f(b);
+  if(fa*fb>0){ // expand b
+    for(let k=0;k<60 && fa*fb>0;k++){ b*=1.6; fb=f(b);} }
+  for(let i=0;i<n;i++){ const m=0.5*(a+b), fm=f(m);
+    if(fa*fm<=0){b=m;fb=fm;} else {a=m;fa=fm;} }
+  return 0.5*(a+b);
+}
+function solveT_fromH(targetH, p, mode){
+  // find T such that mixture enthalpy(T,p)=targetH
+  const hfun = T => (mode==="real"||mode==="frozen") ? frozenAir(T,p).h : equilComposition(T,p,mode).h;
+  let Tlo=200, Thi=30000;
+  // secant-ish via bisection on (h - target)
+  const g = T => hfun(T)-targetH;
+  let glo=g(Tlo), ghi=g(Thi);
+  if(glo*ghi>0) return targetH>g(Thi)?Thi:Tlo;
+  for(let i=0;i<90;i++){ const Tm=0.5*(Tlo+Thi), gm=g(Tm);
+    if(glo*gm<=0){Thi=Tm;ghi=gm;} else {Tlo=Tm;glo=gm;} }
+  return 0.5*(Tlo+Thi);
+}
+
+/* =========================================================================
+   NORMAL-SHOCK SOLVERS
+   ========================================================================= */
+// Perfect gas (ideal model), closed form
+function shockIdeal(M1,T1,p1){
+  const g=GAM;
+  const M2 = Math.sqrt((1+(g-1)/2*M1*M1)/(g*M1*M1-(g-1)/2));
+  const p2p1 = 1+2*g/(g+1)*(M1*M1-1);
+  const r2r1 = (g+1)*M1*M1/((g-1)*M1*M1+2);
+  const T2T1 = p2p1/r2r1;
+  // Rayleigh-Pitot (stagnation pressure behind shock / p1)
+  const p02p1 = Math.pow((g+1)*(g+1)*M1*M1/(4*g*M1*M1-2*(g-1)),g/(g-1))
+              * ((1-g+2*g*M1*M1)/(g+1));
+  return {M2,p2:p2p1*p1,T2:T2T1*T1,rhoRatio:r2r1,p02:p02p1*p1};
+}
+// Conservation-based shock for frozen-real OR equilibrium air.
+// upstream: p1,T1,rho1,h1,u1 ; mode in {real,s3,s4,s5}
+function shockReacting(p1,T1,rho1,h1,u1,mode){
+  let eps=0.12;               // rho1/rho2 guess (strong shock)
+  let T2=4000,p2=0,rho2=0,comp=null;
+  for(let it=0; it<200; it++){
+    const u2=eps*u1;
+    p2 = p1 + rho1*u1*u1*(1-eps);
+    const h2 = h1 + 0.5*u1*u1*(1-eps*eps);
+    T2 = solveT_fromH(h2,p2,mode);
+    comp = (mode==="real")? frozenAir(T2,p2) : equilComposition(T2,p2,mode);
+    rho2 = comp.rho;
+    const epsNew = rho1/rho2;
+    const d = epsNew-eps;
+    eps += 0.6*d;             // relaxation
+    if(Math.abs(d)<1e-7) break;
+  }
+  // frozen sound speed / Mach behind shock
+  const cp2 = (mode==="real")? frozenAirCp(T2)
+            : (()=>{ let cp=0; for(const s in comp.Y) if(comp.Y[s]>0) cp+=comp.Y[s]*cpSpecies(s,T2)/SP[s].M; return cp; })();
+  const Rmix = Ru/comp.Mbar;
+  const g2 = cp2/(cp2-Rmix);
+  const a2 = Math.sqrt(g2*Rmix*T2);
+  const u2 = eps*u1;
+  return {T2,p2,rho2,comp,M2:u2/a2,g2,u2,eps};
+}
+
+/* =========================================================================
+   STAGNATION-POINT STATE (behind shock, decelerated to rest at body)
+   Total enthalpy h0 = h1 + V^2/2 is conserved.  Stagnation pressure from
+   isentropic compression of post-shock gas (frozen gamma2).  Stagnation T
+   solved at (p0,h0) -> for equilibrium it drops sharply vs ideal.
+   ========================================================================= */
+function stagnation(model, fs, sh){
+  const h0 = fs.h1 + 0.5*fs.V*fs.V;
+  if(model==="ideal"){
+    const T0 = fs.T*(1+(GAM-1)/2*fs.M*fs.M);
+    const p0 = sh.p02;                       // Rayleigh-Pitot
+    const rho0 = p0/(R_air*T0);
+    return {T0,p0,rho0,h0,Mbar:0.02885};
+  }
+  // real/equilibrium: isentropic compression post-shock -> stagnation
+  const g2=sh.g2, M2=sh.M2;
+  const p0 = sh.p2*Math.pow(1+(g2-1)/2*M2*M2, g2/(g2-1));
+  const mode = (model==="real")?"real":model;
+  const T0 = solveT_fromH(h0, p0, mode);
+  const comp0 = (model==="real")? frozenAir(T0,p0) : equilComposition(T0,p0,mode);
+  return {T0,p0,rho0:comp0.rho,h0,Mbar:comp0.Mbar,comp0};
+}
+
+/* =========================================================================
+   HEAT FLUX, STAND-OFF, SURFACE DISTRIBUTION
+   ========================================================================= */
+function muSutherland(T){ // air viscosity, Pa s (note: high-T approx)
+  return 1.716e-5*Math.pow(T/273.15,1.5)*(273.15+110.4)/(T+110.4);
+}
+function fayRiddell(stag, fs, Rn, Tw, catal, dissH){
+  const Pr=0.71, Le=1.4;
+  const he=stag.h0;
+  const hw = frozenAir(Tw, stag.p0).h;
+  const rhoe=stag.rho0, mue=muSutherland(stag.T0);
+  const rhow=stag.p0*(xO2_air*SP.O2.M+xN2_air*SP.N2.M)/(Ru*Tw), muw=muSutherland(Tw);
+  // Newtonian stagnation velocity gradient
+  const dudx=(1/Rn)*Math.sqrt(2*Math.max(stag.p0-fs.p,1)/rhoe);
+  let q=0.763*Math.pow(Pr,-0.6)*Math.pow(rhoe*mue,0.4)*Math.pow(rhow*muw,0.1)
+        *Math.sqrt(dudx)*(he-hw);
+  // dissociation-energy / catalycity correction
+  if(catal==="supercat" && dissH>0){
+    q *= (1+(Math.pow(Le,0.52)-1)*dissH/he);
+  }
+  return q; // W/m^2
+}
+function suttonGraves(rhoInf,V,Rn){ return 1.7415e-4*Math.sqrt(rhoInf/Rn)*Math.pow(V,3); } // W/m^2
+
+function standoff(M1,bodyType,epsInv){
+  // Billig (1967): geometry+Mach.  epsInv = rho2/rho_inf (density ratio).
+  let billig;
+  if(bodyType==="sphere") billig=0.143*Math.exp(3.24/(M1*M1));
+  else                    billig=0.386*Math.exp(4.67/(M1*M1));
+  // density-ratio (thin shock-layer) form -> sensitive to real-gas physics
+  const eps=1/epsInv;                        // rho_inf/rho2
+  const dr = eps/(1+Math.sqrt(2*eps));
+  return {billig, densityRatio:dr};
+}
+
+/* =========================================================================
+   DRIVER
+   ========================================================================= */
+function computeAll(){
+  const inp = readInputs();
+  const fs  = freestream(inp);
+  const sel = [...document.querySelectorAll('#models input:checked')].map(c=>c.value);
+  const results={};
+  for(const m of sel){ try{ results[m]=runModel(m,fs,inp);}catch(e){ results[m]={error:String(e)}; } }
+  render(inp,fs,results);
+}
+
+function freestream(inp){
+  const T=inp.T, p=inp.p;
+  const a=Math.sqrt(GAM*R_air*T);
+  let V,M;
+  if(inp.velMode==="mach"){ M=inp.mach; V=M*a; } else { V=inp.vel; M=V/a; }
+  const rho=p/(R_air*T);
+  const mu=muSutherland(T);
+  const Re=rho*V/mu;                         // per metre
+  const h1=frozenAir(T,p).h;
+  const h0=h1+0.5*V*V;
+  let regime;
+  if(M<0.8) regime="Subsonic"; else if(M<1.2) regime="Transonic";
+  else if(M<5) regime="Supersonic"; else regime="Hypersonic";
+  return {T,p,a,V,M,rho,mu,Re,h1,h0,regime,supersonic:M>1};
+}
+
+function runModel(m,fs,inp){
+  const Rn=inp.Rn;
+  const out={model:m};
+  // ----- isentropic stagnation (always available; perfect-gas pressure ref) -----
+  out.p0_isen = fs.p*Math.pow(1+(GAM-1)/2*fs.M*fs.M, GAM/(GAM-1));
+  if(m==="ideal") out.T0_isen = fs.T*(1+(GAM-1)/2*fs.M*fs.M);
+  else            out.T0_isen = solveT_fromH(fs.h0, out.p0_isen, (m==="real")?"real":m);
+  if(!fs.supersonic){                          // subsonic/transonic: no shock
+    out.subsonic=true;
+    out.T0 = out.T0_isen;
+    out.p0 = out.p0_isen;
+    return out;
+  }
+  // ----- shock -----
+  let sh;
+  if(m==="ideal") sh=shockIdeal(fs.M,fs.T,fs.p);
+  else sh=shockReacting(fs.p,fs.T,fs.rho,fs.h1,fs.V,(m==="real")?"real":m);
+  out.sh=sh;
+  if(m==="ideal"){ out.T2=sh.T2; out.p2=sh.p2; out.rhoRatio=sh.rhoRatio; out.M2=sh.M2; }
+  else { out.T2=sh.T2; out.p2=sh.p2; out.rhoRatio=sh.rho2/fs.rho; out.M2=sh.M2; out.comp=sh.comp; }
+  // ----- stagnation behind shock -----
+  const stag=stagnation(m,fs,m==="ideal"?sh:sh);
+  out.T0=stag.T0; out.p0=stag.p0; out.rho0=stag.rho0; out.h0=stag.h0;
+  out.stag=stag;
+  // dissociation enthalpy fraction (for Fay-Riddell catalytic term)
+  let dissH=0;
+  const cc=(m==="ideal")?null:(stag.comp0||out.comp);
+  if(cc){ dissH = (cc.Y.O||0)*SP.O.hf/SP.O.M + (cc.Y.N||0)*SP.N.hf/SP.N.M + (cc.Y.NO||0)*SP.NO.hf/SP.NO.M; }
+  // ----- heat flux -----
+  out.qFR = fayRiddell(stag, fs, Rn, inp.Tw, inp.catal, dissH);
+  out.qSG = suttonGraves(fs.rho, fs.V, Rn);
+  // ----- stand-off -----
+  const so=standoff(fs.M,inp.bodyType,out.rhoRatio);
+  out.standoffR = (m==="ideal")? so.billig : so.densityRatio; // model-sensitive for real gas
+  out.standoffBillig = so.billig;
+  out.standoff_mm = out.standoffR*Rn*1000;
+  // ----- species peaks -----
+  if(cc){ out.YO=cc.Y.O||0; out.YN=cc.Y.N||0; out.YNO=cc.Y.NO||0;
+          out.diss_O2=1-(cc.x.O2||0)/xO2_air; out.diss_N2=1-(cc.x.N2||0)/xN2_air; }
+  // ----- surface distribution (modified Newtonian + isentropic expansion) -----
+  out.surface=surfaceDist(m,fs,stag);
+  return out;
+}
+
+function surfaceDist(m,fs,stag){
+  const qinf=0.5*fs.rho*fs.V*fs.V;
+  const CpMax=(stag.p0-fs.p)/qinf;
+  const g=(m==="ideal")?GAM:(fs.M>1?1.2:1.3);
+  const rows=[];
+  for(let th=0; th<=90; th+=15){
+    const c=Math.cos(th*Math.PI/180);
+    const Cp=CpMax*c*c;
+    const p=fs.p+Cp*qinf;
+    // local static T by isentropic expansion from stagnation
+    const T=stag.T0*Math.pow(Math.max(p,1)/stag.p0,(g-1)/g);
+    rows.push({th,Cp,p,T});
+  }
+  return rows;
+}
+
+/* =========================================================================
+   US STANDARD ATMOSPHERE 1976  (geometric km -> T,p)
+   ========================================================================= */
+function atmosphere(zkm){
+  const g0=9.80665, Rs=287.0528, r0=6356.766;
+  const h=r0*zkm/(r0+zkm);                       // geopotential km
+  const Hb=[0,11,20,32,47,51,71,84.852];
+  const Tb=[288.15,216.65,216.65,228.65,270.65,270.65,214.65,186.946];
+  const Lb=[-6.5,0,1,2.8,0,-2.8,-2,0];
+  const Pb=[101325,22632.06,5474.889,868.0187,110.9063,66.93887,3.956420,0.3733836];
+  let i=0; for(;i<7;i++){ if(h<Hb[i+1]) break; }
+  const dH=h-Hb[i]; let T=Tb[i]+Lb[i]*dH, p;
+  if(Math.abs(Lb[i])<1e-9) p=Pb[i]*Math.exp(-g0*1000*dH/(Rs*Tb[i]));
+  else p=Pb[i]*Math.pow((Tb[i]+Lb[i]*dH)/Tb[i], -g0*1000/(Rs*Lb[i]));
+  return {T,p};
+}
+
+/* =========================================================================
+   I/O + RENDER
+   ========================================================================= */
+function readInputs(){
+  const velMode=document.querySelector('#velMode button.on').dataset.m;
+  const atmMode=document.querySelector('#atmMode button.on').dataset.m;
+  let T=+document.getElementById('temp').value, p=+document.getElementById('pres').value;
+  if(atmMode==="alt"){ const a=atmosphere(+document.getElementById('alt').value); T=a.T; p=a.p; }
+  return {
+    velMode, atmMode, T, p,
+    mach:+document.getElementById('mach').value,
+    vel:+document.getElementById('vel').value,
+    Rn:+document.getElementById('rn').value/1000,
+    bodyType:document.getElementById('bodyType').value,
+    Tw:+document.getElementById('tw').value,
+    catal:document.getElementById('catal').value
+  };
+}
+
+const MODELS={ideal:{n:"Ideal gas",c:"#9aa7bd"},real:{n:"Real gas",c:"#7bdff2"},
+  s3:{n:"3-species",c:"#43d9a3"},s4:{n:"4-species",c:"#ffd166"},s5:{n:"5-species",c:"#ff7849"}};
+
+function fmt(v,d=3){ if(v==null||isNaN(v))return"—";
+  if(v!==0 && (Math.abs(v)>=1e5||Math.abs(v)<1e-3)) return v.toExponential(2);
+  return (+v).toFixed(d); }
+function MW(q){ return q/1e6; }
+
+function render(inp,fs,R){
+  const order=["ideal","real","s3","s4","s5"].filter(m=>R[m]);
+  const el=document.getElementById('out');
+  const regClass={Subsonic:0,Transonic:1,Supersonic:2,Hypersonic:3}[fs.regime];
+  const regColors=["#43d9a3","#ffd166","#3da9fc","#ff7849"];
+
+  let html=`
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <h3>Freestream summary</h3>
+      <span class="pill" style="background:${regColors[regClass]};color:#06223a">${fs.regime} · M∞ = ${fmt(fs.M,2)}</span>
+    </div>
+    <div class="regimebar">
+      ${["Subsonic","Transonic","Supersonic","Hypersonic"].map((n,i)=>
+        `<div class="${i===regClass?'on':''}" style="${i===regClass?`background:${regColors[i]}`:''}">${n}</div>`).join("")}
+    </div>
+    <div class="grid" style="margin-top:12px">
+      ${stat("Velocity V∞",fmt(fs.V,0),"m/s")}
+      ${stat("Speed of sound a∞",fmt(fs.a,1),"m/s")}
+      ${stat("Static temp T∞",fmt(fs.T,1),"K")}
+      ${stat("Static pres p∞",fmt(fs.p,1),"Pa")}
+      ${stat("Density ρ∞",fmt(fs.rho,4),"kg/m³")}
+      ${stat("Reynolds Re/m",fmt(fs.Re,3),"1/m")}
+      ${stat("Total enthalpy h₀",fmt(fs.h0/1e6,2),"MJ/kg")}
+      ${stat("Dynamic press q∞",fmt(0.5*fs.rho*fs.V*fs.V,0),"Pa")}
+    </div>
+    ${inp.atmMode==="alt"?`<div class="hint" style="margin-top:8px">Atmosphere from US Standard 1976 at the entered altitude.</div>`:""}
+  </div>`;
+
+  if(!fs.supersonic){
+    html+=`<div class="warnbox">M∞ &lt; 1 — flow is ${fs.regime.toLowerCase()}, so there is no bow shock.
+      Only isentropic stagnation conditions are shown; stand-off, post-shock state and shock-layer heating do not apply.</div>`;
+  }
+
+  /* ---------- master comparison table ---------- */
+  html+=`<div class="card"><h3>Model comparison ${fs.supersonic?"(across the normal bow shock)":"(isentropic)"}</h3>
+    <div class="tablewrap"><table><thead><tr><th>Quantity</th>
+      ${order.map(m=>`<th><span style="color:${MODELS[m].c}">${MODELS[m].n}</span></th>`).join("")}
+    </tr></thead><tbody>`;
+
+  const rowsSup=[
+    ["Stagnation temp T₀ (K)",       m=>fmt(R[m].T0,0)],
+    ["Post-shock temp T₂ (K)",       m=>fmt(R[m].T2,0)],
+    ["Post-shock press p₂ (kPa)",    m=>fmt(R[m].p2/1000,2)],
+    ["Stagnation press p₀ (kPa)",    m=>fmt(R[m].p0/1000,2)],
+    ["Density ratio ρ₂/ρ∞",          m=>fmt(R[m].rhoRatio,2)],
+    ["Post-shock Mach M₂",           m=>fmt(R[m].M2,3)],
+    ["Stand-off Δ/Rₙ",               m=>fmt(R[m].standoffR,3)],
+    ["Stand-off Δ (mm)",             m=>fmt(R[m].standoff_mm,2)],
+    ["q&#775; Fay–Riddell (MW/m²)",  m=>fmt(MW(R[m].qFR),2)],
+    ["q&#775; Sutton–Graves (MW/m²)",m=>fmt(MW(R[m].qSG),2)],
+    ["Peak Y(O)",                    m=>R[m].YO!=null?fmt(R[m].YO,3):"0"],
+    ["Peak Y(N)",                    m=>R[m].YN!=null?fmt(R[m].YN,4):"0"],
+    ["Peak Y(NO)",                   m=>R[m].YNO!=null?fmt(R[m].YNO,4):"0"],
+    ["O₂ dissociation",              m=>R[m].diss_O2!=null?(100*R[m].diss_O2).toFixed(1)+"%":"0%"],
+    ["N₂ dissociation",              m=>R[m].diss_N2!=null?(100*R[m].diss_N2).toFixed(1)+"%":"0%"],
+  ];
+  const rowsSub=[
+    ["Stagnation temp T₀ (K)", m=>fmt(R[m].T0,0)],
+    ["Stagnation press p₀ (kPa)", m=>fmt((R[m].p0_isen||R[m].p0)/1000,2)],
+  ];
+  const rows = fs.supersonic?rowsSup:rowsSub;
+  for(const [label,fn] of rows){
+    html+=`<tr><td>${label}</td>${order.map(m=>R[m].error?`<td class="num bad">err</td>`:`<td class="num">${fn(m)}</td>`).join("")}</tr>`;
+  }
+  html+=`</tbody></table></div>
+    <div class="hint" style="margin-top:8px">Stand-off: ideal uses Billig (M-based); real/equilibrium use the density-ratio
+    thin-shock-layer form (captures real-gas thinning). Heat flux at wall Tw=${inp.Tw} K, Rₙ=${(inp.Rn*1000).toFixed(0)} mm,
+    ${inp.catal==="supercat"?"super-catalytic":"non-catalytic"} wall.</div></div>`;
+
+  /* ---------- per-model detail cards ---------- */
+  if(fs.supersonic){
+    html+=`<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">`;
+    for(const m of order){
+      if(R[m].error){ html+=`<div class="card"><h3 style="color:${MODELS[m].c}">${MODELS[m].n}</h3><p class="bad small">Error: ${R[m].error}</p></div>`; continue; }
+      const r=R[m];
+      html+=`<div class="card"><h3 style="color:${MODELS[m].c}">${MODELS[m].n}</h3>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:7px">
+          ${stat("T₀ stag",fmt(r.T0,0),"K")}
+          ${stat("T₂",fmt(r.T2,0),"K")}
+          ${stat("p₀",fmt(r.p0/1000,1),"kPa")}
+          ${stat("ρ₂/ρ∞",fmt(r.rhoRatio,2),"")}
+          ${stat("Δ",fmt(r.standoff_mm,2),"mm")}
+          ${stat("q&#775; F-R",fmt(MW(r.qFR),2),"MW/m²")}
+        </div>`;
+      if(r.comp){
+        html+=`<div class="small muted" style="margin-top:9px">Equilibrium mole fractions (post-shock):</div>
+        <div class="tablewrap" style="margin-top:5px"><table><tbody>`;
+        for(const s of ["O2","N2","NO","O","N"]){
+          const x=r.comp.x[s]||0; const pct=(x*100);
+          html+=`<tr><td>${s.replace("2","₂")}</td><td class="num barcell"><i style="width:${Math.min(100,pct).toFixed(0)}%"></i><span>${pct<0.01&&pct>0?pct.toExponential(1):pct.toFixed(2)}%</span></td></tr>`;
+        }
+        html+=`</tbody></table></div>`;
+      }
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+
+    /* ---------- surface distribution (use most complete model) ---------- */
+    const sm = order.includes("s5")?"s5":order[order.length-1];
+    if(R[sm].surface){
+      html+=`<div class="card"><h3>Surface distribution vs wall angle — ${MODELS[sm].n}
+        <span class="muted small">(modified Newtonian pressure + isentropic expansion)</span></h3>
+        <div class="tablewrap"><table><thead><tr>
+          <th>θ from stagnation (°)</th><th>C<sub>p</sub></th><th>Surface p (kPa)</th><th>Surface static T (K)</th><th>local p/p₀</th>
+        </tr></thead><tbody>`;
+      for(const row of R[sm].surface){
+        html+=`<tr><td>${row.th}</td><td class="num">${fmt(row.Cp,3)}</td><td class="num">${fmt(row.p/1000,2)}</td>
+          <td class="num">${fmt(row.T,0)}</td><td class="num">${fmt(row.p/R[sm].p0,3)}</td></tr>`;
+      }
+      html+=`</tbody></table></div>
+      <div class="hint" style="margin-top:7px">θ=0 is the stagnation point (max pressure/temperature); θ=90° is the shoulder.
+      “Static temperature at different wall curvatures” = this T(θ) column for a curved wall.</div></div>`;
+    }
+  }
+
+  /* ---------- assumptions ---------- */
+  html+=assumptionsHTML();
+  el.innerHTML=html;
+}
+function stat(k,v,u){ return `<div class="stat"><div class="k">${k}</div><div class="v">${v}${u?` <small>${u}</small>`:""}</div></div>`; }
+
+function assumptionsHTML(){return `
+  <details><summary>Assumptions &amp; validity (read me)</summary>
+    <ul>
+      <li><b>Ideal gas:</b> calorically perfect air, γ=1.4, Cp=1006 J/kg·K, Sutherland μ. Closed-form isentropic + normal-shock. Over-predicts T₀ by design (control).</li>
+      <li><b>Real gas:</b> thermally-perfect air (frozen 21% O₂ / 79% N₂), variable Cp(T) with vibrational excitation; shock solved from mass/momentum/energy conservation. Captures the caloric (γ↓) effect, no chemistry.</li>
+      <li><b>3/4/5-species:</b> <i>chemical-equilibrium</i> air behind the shock. Composition re-solves to local (T,p) from statistical-thermodynamic dissociation constants Kp(T) (O₂⇌2O, N₂⇌2N, NO⇌N+O) with element &amp; Dalton constraints. This is the analytical counterpart to your nonequilibrium CFD; equilibrium ≈ frozen only in the limits. Most accurate for post-shock T ≲ 8000 K (covers the reacting regime); above that, atomic electronic excitation &amp; ionization (not modelled) become significant.</li>
+      <li><b>Stand-off:</b> Billig (1967) empirical (ideal, Mach-based) and the density-ratio thin-shock-layer relation Δ/Rₙ = ε/(1+√(2ε)), ε=ρ∞/ρ₂ (real-gas-sensitive). They bracket reality — real gas thins the layer because ρ₂/ρ∞ rises.</li>
+      <li><b>Heat flux:</b> Fay–Riddell (Le=1.4, Pr=0.71, Newtonian velocity gradient β=(1/Rₙ)√(2(p₀−p∞)/ρ₀)) and Sutton–Graves engineering correlation. Both in MW/m². Sutton–Graves is composition-independent (same for all models) and is the quick sanity check.</li>
+      <li><b>Surface:</b> modified Newtonian Cp = Cp,max·cos²θ; local static T by isentropic expansion from stagnation.</li>
+      <li><b>Validity range:</b> works subsonic→hypersonic. For M&lt;1 only isentropic stagnation is shown (no shock). Viscosity is Sutherland (under-predicts μ above ~2000 K). Single translational temperature (no T–T_v two-temperature nonequilibrium — that needs CFD/UDF).</li>
+      <li><b>Cross-check targets (M≈15, 50 km thesis case):</b> Sutton–Graves ≈ 4.4 MW/m²; stand-off vs Lobb; T₀ ideal ≈ 12 kK collapsing to ≈ 6 kK with chemistry.</li>
+    </ul>
+  </details>`;
+}
+
+/* =========================================================================
+   UI WIRING
+   ========================================================================= */
+function wireSeg(id,onChange){
+  document.querySelectorAll(`#${id} button`).forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll(`#${id} button`).forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); onChange&&onChange(b.dataset.m);
+  }));
+}
+wireSeg('velMode',m=>{ document.getElementById('machField').style.display=m==="mach"?"":"none";
+                       document.getElementById('velField').style.display=m==="vel"?"":"none"; });
+wireSeg('atmMode',m=>{ const alt=m==="alt";
+  document.getElementById('altField').style.display=alt?"":"none";
+  document.getElementById('tField').style.display=alt?"none":"";
+  document.getElementById('pField').style.display=alt?"none":""; updateAltReadout(); });
+function updateAltReadout(){
+  const a=atmosphere(+document.getElementById('alt').value);
+  document.getElementById('altReadout').textContent=`→ T∞=${a.T.toFixed(1)} K, p∞=${a.p.toFixed(2)} Pa, ρ∞=${(a.p/(R_air*a.T)).toExponential(2)} kg/m³`;
+}
+document.getElementById('alt').addEventListener('input',updateAltReadout);
+document.getElementById('run').addEventListener('click',computeAll);
+document.addEventListener('keydown',e=>{ if(e.key==="Enter") computeAll(); });
+updateAltReadout();
+computeAll();   // run once on load with thesis defaults
+</script>
+</body>
+</html>
