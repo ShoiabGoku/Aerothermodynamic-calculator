@@ -1,69 +1,56 @@
-# Aerothermodynamics Calculator — Freestream → Shock → Surface
+# Compressible & Hypersonic Aerodynamics Calculator
 
-A single-file, dependency-free web calculator for compressible & hypersonic aerothermodynamics.
-Enter **freestream conditions** and it returns stagnation temperature/pressure, post-shock state,
-shock stand-off distance, post-shock Mach number, surface pressure & static temperature versus wall
-curvature, and stagnation-point heat flux — solved **in parallel for five gas models** so you can
-read off the physics of each fidelity level side by side:
+A free, single-file, dependency-free web tool for **compressible-flow and aerothermodynamics studies** — usable by
+anyone, for any project, in any browser (works offline; hosts free on GitHub Pages). It combines the classic
+perfect-gas relations with a high-temperature **real-gas / equilibrium-air** module for hypersonics.
 
-| Model | Physics |
+### 🔗 Live app: https://shoiabgoku.github.io/Aerothermodynamic-calculator/
+
+## Tools (tabs)
+
+| Tab | What it does |
 |---|---|
-| **Ideal gas** | Calorically perfect air, γ = 1.4, constant Cp. Closed-form isentropic + normal shock. |
-| **Real gas** | Thermally-perfect air with vibrational excitation (variable Cp(T)); conservation-based shock. |
-| **3-species** | Equilibrium air, O₂ ⇌ 2O (O₂, O, N₂). |
-| **4-species** | Adds N₂ ⇌ 2N (+ N). |
-| **5-species** | Adds NO ⇌ N + O (+ NO) — full neutral equilibrium air. |
+| **Isentropic** | Solve from *any* input (M, p₀/p, T₀/T, ρ₀/ρ, A/A* sub/sup, Mach angle μ, Prandtl–Meyer angle ν) → all the others. |
+| **Normal shock** | Solve from any of M₁, M₂, p₂/p₁, ρ₂/ρ₁, T₂/T₁, p₀₂/p₀₁; gives the full jump + pitot ratio. |
+| **Oblique shock** | Wedge / compression ramp. Input deflection θ **or** wave angle β; weak & strong solutions; θ–β–M plot; attached/detached check. **Perfect gas *or* real-gas / 5-species equilibrium air.** |
+| **Cone (Taylor–Maccoll)** | Sharp cone at zero incidence — shock angle, surface Mach, surface Cₚ, by integrating the Taylor–Maccoll ODE. |
+| **Prandtl–Meyer** | Expansion fan: M₂, ν, μ, and p/T/ρ ratios through a given turn. |
+| **Aerothermo (real gas)** | The hypersonic module: freestream → bow shock → surface, solved in parallel for **ideal · thermally-perfect · 3/4/5-species equilibrium air** — stagnation T₀/p₀, post-shock state, shock stand-off, surface p/T vs wall angle, stagnation heat flux (Fay–Riddell & Sutton–Graves). |
+| **Atmosphere** | US Standard Atmosphere 1976 (to 86 km): T, p, ρ, speed of sound, viscosity. |
+| **Trajectory sweep** | Sweep velocity, Mach, or altitude and **plot** stagnation T₀, heat flux and shock stand-off — e.g. along a re-entry trajectory. |
 
-Valid across **subsonic, transonic, supersonic and hypersonic** regimes (below M = 1 the bow shock
-vanishes and only isentropic stagnation conditions are shown).
+### Global features
+- **Configurable γ** for all perfect-gas tools.
+- **SI ⇄ US/Imperial** unit toggle for dimensional quantities.
+- **CSV export** of the current results table and **Print / Save-as-PDF**.
+- Inline SVG plots (θ–β–M diagram, trajectory curves) — no external libraries.
 
 ## Use it
-
-Just open `index.html` in any browser — no build, no server, no internet. Or host it free on
-**GitHub Pages** (Settings → Pages → deploy from branch → root) and use the published URL.
-
-The page loads pre-filled with the M∞ ≈ 15, 50 km blunt-body case and computes immediately.
-
-### Inputs
-- Velocity by **Mach** or **m/s**
-- Atmosphere by **altitude** (US Standard 1976, auto-fills T, p, ρ) or **manual T, p**
-- Nose/leading-edge radius, body type (sphere or 2-D cylinder), wall temperature, wall catalycity
-
-### Outputs
-- Freestream summary (a∞, ρ∞, Re/m, total enthalpy, dynamic pressure, regime classification)
-- Model-comparison table: T₀, T₂, p₂, p₀, ρ₂/ρ∞, M₂, stand-off Δ/Rₙ and Δ (mm), heat flux, species fractions, dissociation %
-- Per-model equilibrium composition (mole fractions of O₂, N₂, NO, O, N)
-- Surface distribution: Cₚ, pressure and **static temperature vs wall angle** (the "static temperature at different wall curvatures")
+Open `index.html` in any browser — no build, no server, no internet. Or use the live GitHub Pages link above.
 
 ## Methods & references
-- **Perfect gas / normal shock:** Anderson, *Modern Compressible Flow*.
-- **Equilibrium air:** statistical-thermodynamic dissociation constants Kp(T) from molecular constants
-  (characteristic vibration/rotation temperatures, ground electronic degeneracies) and bond energies
-  derived from formation enthalpies, with element- and Dalton-pressure constraints
-  (Vincenti & Kruger, *Introduction to Physical Gas Dynamics*; Anderson, *Hypersonic and
-  High-Temperature Gas Dynamics*, Ch. 11).
-- **Stagnation heat flux:** Fay & Riddell (1958); Sutton & Graves, NASA TR R-376 (1971).
-- **Shock stand-off:** Billig (1967) correlation + density-ratio thin-shock-layer relation.
-- **Surface pressure:** modified Newtonian, Cₚ = Cₚ,max·cos²θ.
+- **Perfect-gas relations** (isentropic, normal/oblique/conical shock, Prandtl–Meyer): Anderson, *Modern Compressible Flow*; NACA Report 1135.
+- **Conical flow**: Taylor–Maccoll ODE, shot for the shock angle.
+- **Real-gas oblique shock**: the shock-normal Mach is resolved into the equilibrium normal-shock solver (tangential velocity preserved); the kinematic relation tan(β−θ)/tanβ = ρ₁/ρ₂ closes it — reducing to θ–β–M for a perfect gas.
+- **Equilibrium air**: statistical-thermodynamic dissociation constants Kp(T) from molecular partition functions and bond energies (Vincenti & Kruger; Anderson, *Hypersonic and High-Temperature Gas Dynamics*).
+- **Stagnation heat flux**: Fay & Riddell (1958); Sutton & Graves, NASA TR R-376 (1971). **Stand-off**: Billig (1967). **Atmosphere**: US Standard 1976.
 
-## Validation
-`verify.py` re-runs the physics core in Python against the M∞ ≈ 15 / 50 km case. It reproduces
-Sutton–Graves ≈ 4.4 MW/m², ideal T₀ ≈ 12.7 kK collapsing to ≈ 5.4 kK with full chemistry, the
-monotone ρ₂/ρ∞ rise across the model ladder, and exact element conservation (N/O = 3.762).
+## Verification
+The physics core is re-derived independently in Python and checked against textbook values:
+- `verify.py` — equilibrium-air aerothermo (Sutton–Graves ≈ 4.4 MW/m²; ideal T₀ ≈ 12.7 kK → 5.4 kK with full chemistry; element conservation N/O = 3.762).
+- `verify2.py` — perfect-gas tools (isentropic M=2: p₀/p=7.824, A/A*=1.6875, ν=26.38°; oblique M=3/θ=20° → β=37.76°/M₂=1.99; cone M=3/σ=15° → β=25.3°; all matching NACA 1135 / Anderson).
 
 ```
 python verify.py
+python verify2.py
 ```
 
 ## Scope / limitations
-- Single translational temperature — no two-temperature (T–T_v) thermal nonequilibrium, and no
-  finite-rate kinetics. The equilibrium result is the **bounding** counterpart to nonequilibrium CFD,
-  not a replacement for it.
-- Chemistry is neutral, 5-species air; ionization and electronic excitation (significant above
-  ~8000–9000 K) are not modelled.
+- Perfect-gas tools assume a calorically perfect gas (single γ).
+- The real-gas / equilibrium module uses a single translational temperature (no two-temperature thermal nonequilibrium, no finite-rate kinetics) and neutral 5-species air (no ionization). It is the equilibrium **bounding** counterpart to nonequilibrium CFD, not a replacement.
 - Sutherland viscosity under-predicts μ above ~2000 K.
 
-For verification and teaching — not a substitute for converged CFD.
+For verification and education — not a substitute for converged CFD.
 
 ## License
 MIT — see `LICENSE`.

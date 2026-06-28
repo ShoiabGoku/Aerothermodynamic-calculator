@@ -72,16 +72,69 @@
   .barcell{position:relative}
   .barcell span{position:relative;z-index:1}
   .barcell i{position:absolute;left:0;top:0;bottom:0;background:#1d3a5f;border-radius:3px;z-index:0}
+  /* ---- tabs ---- */
+  .tabbar{display:flex;flex-wrap:wrap;gap:4px;padding:8px 20px 0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:20}
+  .tabbar button{background:transparent;border:1px solid transparent;border-bottom:0;color:var(--muted);
+       padding:8px 13px;font-size:13px;cursor:pointer;border-radius:8px 8px 0 0;font-weight:600}
+  .tabbar button:hover{color:var(--txt)}
+  .tabbar button.on{background:var(--panel);border-color:var(--line);color:var(--accent2)}
+  .gbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:9px 20px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12.5px}
+  .gbar label{color:var(--muted);display:flex;align-items:center;gap:6px}
+  .gbar input,.gbar select{width:90px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 7px;font-family:var(--mono);font-size:12px}
+  .gbar .spacer{flex:1}
+  .gbar .xbtn{background:var(--panel);border:1px solid var(--line);color:var(--accent2);border-radius:7px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:600;width:auto}
+  .gbar .xbtn:hover{border-color:var(--accent)}
+  .tabpanel{display:none}
+  .tabpanel.active{display:block}
+  /* single-tool panel layout */
+  .tool{padding:18px 22px;max-width:1100px}
+  .tool h2{margin-top:0}
+  .inrow{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:6px}
+  .inrow .field{margin-bottom:0;min-width:150px}
+  .inrow .field.sm{min-width:110px}
+  .note{font-size:12px;color:var(--muted);margin:4px 0 12px}
+  svg.plot{width:100%;max-width:680px;height:auto;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
+  svg.plot text{fill:var(--muted);font-family:var(--sans)}
+  @media print{
+    .tabbar,.gbar,.controls,.btn,.foot,#velMode,#atmMode{display:none!important}
+    body{background:#fff;color:#000}
+    .card,.stat,.tablewrap,svg.plot{break-inside:avoid;border-color:#bbb;background:#fff}
+    .tabpanel:not(.active){display:none}
+    th{background:#27496d!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .results{padding:0}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>Aerothermodynamics Calculator <span class="muted" style="font-weight:400">· Freestream → Shock → Surface</span></h1>
-  <p>Enter freestream conditions; the tool computes stagnation temperature/pressure, post-shock state, shock stand-off, surface
-     pressure &amp; static temperature vs. wall curvature, and stagnation heat flux — solved in parallel for
-     <b>ideal gas</b>, <b>thermally-perfect real gas</b>, and <b>3-, 4- and 5-species equilibrium air</b>. Valid subsonic → hypersonic.</p>
+  <h1>Compressible &amp; Hypersonic Aerodynamics Calculator <span class="muted" style="font-weight:400">· an open tool for compressible-flow &amp; aerothermodynamics studies</span></h1>
+  <p>A free, browser-based suite: isentropic relations, normal / oblique / conical shocks and Prandtl–Meyer expansion (perfect gas, any γ),
+     plus a high-temperature <b>real-gas aerothermodynamics</b> module (ideal · thermally-perfect · 3/4/5-species equilibrium air) for stagnation heating,
+     shock stand-off and surface loads. Valid subsonic → hypersonic.</p>
 </header>
 
+<div class="tabbar" id="tabbar">
+  <button data-tab="isen" class="on">Isentropic</button>
+  <button data-tab="ns">Normal shock</button>
+  <button data-tab="obl">Oblique shock</button>
+  <button data-tab="cone">Cone (Taylor–Maccoll)</button>
+  <button data-tab="pm">Prandtl–Meyer</button>
+  <button data-tab="aero">Aerothermo (real gas)</button>
+  <button data-tab="atm">Atmosphere</button>
+  <button data-tab="traj">Trajectory sweep</button>
+</div>
+<div class="gbar">
+  <label title="Ratio of specific heats for the perfect-gas tools">γ (perfect-gas tools)
+    <input id="gam" type="number" step="0.01" value="1.4"></label>
+  <label title="Unit system for dimensional quantities (Aerothermo, Atmosphere, Trajectory)">Units
+    <select id="units"><option value="SI">SI</option><option value="US">US / Imperial</option></select></label>
+  <span class="spacer"></span>
+  <button class="xbtn" id="btnCsv" title="Download the current results table as CSV">⤓ CSV</button>
+  <button class="xbtn" id="btnPrint" title="Print or save the current tab as PDF">🖨 Print / PDF</button>
+</div>
+
+<!-- ===================== TAB: AEROTHERMO ===================== -->
+<section id="tab-aero" class="tabpanel">
 <div class="wrap">
   <!-- ============ CONTROLS ============ -->
   <div class="controls">
@@ -173,12 +226,143 @@
       equilibrium for 3/4/5-species) so every difference is physics, not numerics — mirroring the fixed-Mach fidelity ladder.</p></div>
   </div>
 </div>
+</section><!-- /tab-aero -->
+
+<!-- ===================== TAB: ISENTROPIC ===================== -->
+<section id="tab-isen" class="tabpanel active">
+ <div class="tool">
+  <h2>Isentropic flow relations</h2>
+  <div class="inrow">
+    <div class="field"><label>Solve from</label>
+      <select id="isen-var">
+        <option value="M">Mach number M</option>
+        <option value="p0p">p₀/p (pressure ratio)</option>
+        <option value="T0T">T₀/T (temperature ratio)</option>
+        <option value="r0r">ρ₀/ρ (density ratio)</option>
+        <option value="AAsub">A/A* (subsonic branch)</option>
+        <option value="AAsup">A/A* (supersonic branch)</option>
+        <option value="mu">Mach angle μ (°)</option>
+        <option value="nu">Prandtl–Meyer angle ν (°)</option>
+      </select></div>
+    <div class="field sm"><label>Value</label><input id="isen-val" type="number" step="0.1" value="2"></div>
+  </div>
+  <div class="note">Perfect gas, γ from the bar above. Enter any one quantity to get all the others; A/A* has separate subsonic and supersonic branches.</div>
+  <div id="out-isen"></div>
+ </div>
+</section>
+
+<!-- ===================== TAB: NORMAL SHOCK ===================== -->
+<section id="tab-ns" class="tabpanel">
+ <div class="tool">
+  <h2>Normal shock relations</h2>
+  <div class="inrow">
+    <div class="field"><label>Solve from</label>
+      <select id="ns-var">
+        <option value="M1">Upstream Mach M₁</option>
+        <option value="M2">Downstream Mach M₂</option>
+        <option value="p2p1">Static pressure ratio p₂/p₁</option>
+        <option value="r2r1">Density ratio ρ₂/ρ₁</option>
+        <option value="T2T1">Temperature ratio T₂/T₁</option>
+        <option value="p02p01">Total pressure ratio p₀₂/p₀₁</option>
+      </select></div>
+    <div class="field sm"><label>Value</label><input id="ns-val" type="number" step="0.1" value="2"></div>
+  </div>
+  <div class="note">Perfect gas, γ from the bar. The upstream flow must be supersonic (M₁ ≥ 1).</div>
+  <div id="out-ns"></div>
+ </div>
+</section>
+
+<!-- ===================== TAB: OBLIQUE SHOCK ===================== -->
+<section id="tab-obl" class="tabpanel">
+ <div class="tool">
+  <h2>Oblique shock — wedge / compression ramp</h2>
+  <div class="inrow">
+    <div class="field sm"><label>Upstream Mach M₁</label><input id="obl-M" type="number" step="0.1" value="3"></div>
+    <div class="field"><label>Given</label>
+      <select id="obl-given"><option value="theta">Flow deflection θ (°)</option><option value="beta">Wave angle β (°)</option></select></div>
+    <div class="field sm"><label id="obl-vlab">θ (°)</label><input id="obl-val" type="number" step="0.5" value="20"></div>
+    <div class="field"><label>Solution</label>
+      <select id="obl-sol"><option value="weak">Weak (attached)</option><option value="strong">Strong</option></select></div>
+    <div class="field"><label>Gas model</label>
+      <select id="obl-gas">
+        <option value="pg">Perfect gas (γ)</option>
+        <option value="real">Real gas (thermally-perfect air)</option>
+        <option value="s5">5-species equilibrium air</option>
+      </select></div>
+  </div>
+  <div class="inrow" id="obl-realrow" style="display:none">
+    <div class="field sm"><label>Static T₁ (K)</label><input id="obl-T" type="number" step="1" value="270"></div>
+    <div class="field sm"><label>Static p₁ (Pa)</label><input id="obl-p" type="number" step="1" value="79"></div>
+    <div class="note" style="margin:0;align-self:center;max-width:380px">Real-gas oblique resolves the shock-normal Mach into the equilibrium normal-shock solver (tangential velocity preserved).</div>
+  </div>
+  <div id="out-obl"></div>
+ </div>
+</section>
+
+<!-- ===================== TAB: CONE ===================== -->
+<section id="tab-cone" class="tabpanel">
+ <div class="tool">
+  <h2>Conical shock — Taylor–Maccoll (perfect gas)</h2>
+  <div class="inrow">
+    <div class="field sm"><label>Upstream Mach M₁</label><input id="cone-M" type="number" step="0.1" value="3"></div>
+    <div class="field sm"><label>Cone half-angle σ (°)</label><input id="cone-s" type="number" step="0.5" value="15"></div>
+  </div>
+  <div class="note">Sharp cone at zero incidence. The shock angle is found by shooting the Taylor–Maccoll ODE; surface flow is uniform along rays.</div>
+  <div id="out-cone"></div>
+ </div>
+</section>
+
+<!-- ===================== TAB: PRANDTL-MEYER ===================== -->
+<section id="tab-pm" class="tabpanel">
+ <div class="tool">
+  <h2>Prandtl–Meyer expansion fan</h2>
+  <div class="inrow">
+    <div class="field sm"><label>Upstream Mach M₁</label><input id="pm-M" type="number" step="0.1" value="2"></div>
+    <div class="field sm"><label>Expansion turn Δθ (°)</label><input id="pm-d" type="number" step="0.5" value="10"></div>
+  </div>
+  <div class="note">Isentropic expansion through angle Δθ (perfect gas, γ from bar): ν(M₂) = ν(M₁) + Δθ.</div>
+  <div id="out-pm"></div>
+ </div>
+</section>
+
+<!-- ===================== TAB: ATMOSPHERE ===================== -->
+<section id="tab-atm" class="tabpanel">
+ <div class="tool">
+  <h2>US Standard Atmosphere 1976</h2>
+  <div class="inrow">
+    <div class="field sm"><label id="atm-zlab">Geometric altitude (km)</label><input id="atm-z" type="number" step="1" value="30"></div>
+  </div>
+  <div class="note">Valid to 86 km geometric. Returns T, p, ρ, speed of sound and viscosity.</div>
+  <div id="out-atm"></div>
+ </div>
+</section>
+
+<!-- ===================== TAB: TRAJECTORY ===================== -->
+<section id="tab-traj" class="tabpanel">
+ <div class="tool">
+  <h2>Trajectory / parameter sweep — stagnation heating &amp; shock</h2>
+  <div class="inrow">
+    <div class="field"><label>Sweep variable</label>
+      <select id="tr-var"><option value="V">Velocity</option><option value="M">Mach number</option><option value="alt">Altitude</option></select></div>
+    <div class="field sm"><label id="tr-lolab">From</label><input id="tr-lo" type="number" value="2000"></div>
+    <div class="field sm"><label id="tr-hilab">To</label><input id="tr-hi" type="number" value="8000"></div>
+    <div class="field sm"><label>Steps</label><input id="tr-n" type="number" value="25"></div>
+    <div class="field sm"><label id="tr-altlab">Altitude (km)</label><input id="tr-alt" type="number" value="50"></div>
+    <div class="field sm"><label id="tr-rnlab">Rₙ (mm)</label><input id="tr-rn" type="number" value="25"></div>
+    <div class="field"><label>Gas model</label>
+      <select id="tr-gas"><option value="ideal">Ideal</option><option value="real">Real</option><option value="s5">5-species eq.</option></select></div>
+  </div>
+  <div class="note">Sweeps the aerothermo solver to plot stagnation T₀, heat flux (Fay–Riddell &amp; Sutton–Graves) and shock stand-off — e.g. along a re-entry trajectory.</div>
+  <div id="out-traj"></div>
+ </div>
+</section>
 
 <div class="foot">
-  Models: perfect gas (Anderson, <i>Modern Compressible Flow</i>); thermally-perfect air with vibrational excitation; equilibrium air via
-  statistical-thermodynamic dissociation constants (Vincenti &amp; Kruger; Anderson, <i>Hypersonic &amp; High-Temperature Gas Dynamics</i>, Ch. 11).
-  Heat flux: Fay–Riddell (1958) &amp; Sutton–Graves (NASA TR R-376). Stand-off: Billig (1967). Surface pressure: modified Newtonian.
-  <br>For verification / education — not a substitute for converged CFD. See “Assumptions &amp; validity” below the results.
+  Perfect-gas tools (isentropic, normal/oblique/conical shock, Prandtl–Meyer): Anderson, <i>Modern Compressible Flow</i>; NACA Report 1135.
+  Real-gas aerothermo: thermally-perfect air + equilibrium air via statistical-thermodynamic dissociation constants (Vincenti &amp; Kruger;
+  Anderson, <i>Hypersonic &amp; High-Temperature Gas Dynamics</i>). Heat flux: Fay–Riddell (1958) &amp; Sutton–Graves (NASA TR R-376).
+  Stand-off: Billig (1967). Atmosphere: US Standard 1976.
+  <br>Open for any compressible-flow or aerothermodynamics study — for verification &amp; education, not a substitute for converged CFD.
 </div>
 
 <script>
@@ -258,6 +442,9 @@ function Kp_NO(T){ return qVol("N",T)*qVol("O",T)/qVol("NO",T)*kB*T*Math.exp(-D_
    mode: "s3" O2/O/N2 (O2 dissoc only) ; "s4" +N ; "s5" +NO
    ========================================================================= */
 function equilComposition(T, p, mode){
+  // Below ~2000 K there is no measurable dissociation; the Kp's underflow and
+  // the Newton solve becomes ill-conditioned. Equilibrium air = frozen air here.
+  if(T < 2000) return frozenAir(T, p);
   const KO = Kp_O2(T);
   const r  = ATOM_NO_RATIO;
   let pO2,pN2,pO=0,pN=0,pNO=0;
@@ -748,7 +935,355 @@ document.addEventListener('keydown',e=>{ if(e.key==="Enter") computeAll(); });
 document.getElementById('tField').style.display='none';
 document.getElementById('pField').style.display='none';
 updateAltReadout();
-computeAll();   // run once on load with thesis defaults
+computeAll();   // populate aerothermo tab
+
+/* =========================================================================
+   ============   TIER 1 + 2 : GENERAL COMPRESSIBLE-FLOW TOOLS   ===========
+   ========================================================================= */
+function GAMMA(){ const g=+document.getElementById('gam').value; return (g>1.001&&g<2.5)?g:1.4; }
+
+/* ---- units ---- */
+const U={ sys:'SI',
+  d:{vel:{SI:['m/s',1],US:['ft/s',3.280839895]},
+     temp:{SI:['K',1],US:['°R',1.8]},
+     pres:{SI:['Pa',1],US:['psi',1.4503773773e-4]},
+     len:{SI:['mm',1],US:['in',0.03937007874]},
+     alt:{SI:['km',1],US:['kft',3.280839895]},
+     q:{SI:['MW/m²',1],US:['BTU/ft²·s',88.0550]},
+     rho:{SI:['kg/m³',1],US:['slug/ft³',0.001940320]}},
+  lab(t){return this.d[t][this.sys][0];},
+  to(t,v){return v*this.d[t][this.sys][1];},      // SI -> display
+  from(t,v){return v/this.d[t][this.sys][1];} };   // display -> SI
+
+/* ---- isentropic (perfect gas) ---- */
+function isen(M,g){
+  if(M<=0) return null;
+  const f=1+(g-1)/2*M*M;
+  return {M, T0T:f, p0p:Math.pow(f,g/(g-1)), r0r:Math.pow(f,1/(g-1)),
+    AAs:(1/M)*Math.pow((2/(g+1))*f,(g+1)/(2*(g-1))),
+    mu:M>=1?Math.asin(1/M)*180/Math.PI:null,
+    nu:M>=1?(Math.sqrt((g+1)/(g-1))*Math.atan(Math.sqrt((g-1)/(g+1)*(M*M-1)))-Math.atan(Math.sqrt(M*M-1)))*180/Math.PI:null };
+}
+function M_from_AAs(AAs,g,branch){
+  let lo=branch==='sup'?1:1e-4, hi=branch==='sup'?60:1;
+  for(let i=0;i<200;i++){ const m=0.5*(lo+hi), v=isen(m,g).AAs-AAs;
+    if(branch==='sup'){ if(v>0)hi=m; else lo=m; } else { if(v>0)lo=m; else hi=m; } }
+  return 0.5*(lo+hi);
+}
+function M_from_nu(nu,g){ let lo=1,hi=120;
+  for(let i=0;i<200;i++){ const m=0.5*(lo+hi); if(isen(m,g).nu>nu)hi=m; else lo=m; } return 0.5*(lo+hi); }
+
+/* ---- normal shock (perfect gas) ---- */
+function nshock(M1,g){
+  const M2=Math.sqrt((1+(g-1)/2*M1*M1)/(g*M1*M1-(g-1)/2));
+  const p2p1=1+2*g/(g+1)*(M1*M1-1), r2r1=(g+1)*M1*M1/((g-1)*M1*M1+2);
+  const p02p01=Math.pow((g+1)*M1*M1/((g-1)*M1*M1+2),g/(g-1))*Math.pow((g+1)/(2*g*M1*M1-(g-1)),1/(g-1));
+  return {M1,M2,p2p1,r2r1,T2T1:p2p1/r2r1,p02p01};
+}
+function nshock_fromVar(which,val,g){
+  if(which==='M1') return Math.max(val,1e-6);
+  let lo=1.0000001,hi=60, f=M1=>nshock(M1,g)[which]-val;
+  const inc=(which==='M2'||which==='p02p01')?-1:1; // decreasing vars
+  for(let i=0;i<200;i++){ const m=0.5*(lo+hi), v=f(m)*inc; if(v>0)hi=m; else lo=m; }
+  return 0.5*(lo+hi);
+}
+
+/* ---- oblique shock ---- */
+function theta_beta(M1,beta,g){ const b=beta*Math.PI/180, Mn=M1*Math.sin(b);
+  if(Mn<1) return -1;
+  return Math.atan(2/Math.tan(b)*(M1*M1*Math.sin(b)*Math.sin(b)-1)/(M1*M1*(g+Math.cos(2*b))+2))*180/Math.PI; }
+function oblique_pg(M1,theta,g,strong){
+  const mu=Math.asin(1/M1)*180/Math.PI;
+  let bmaxA=mu,tmax=-1; for(let b=mu+0.01;b<90;b+=0.05){ const t=theta_beta(M1,b,g); if(t>tmax){tmax=t;bmaxA=b;} }
+  if(theta>tmax+1e-6) return {detached:true,theta_max:tmax};
+  let lo,hi; if(!strong){lo=mu;hi=bmaxA;} else {lo=bmaxA;hi=90;}
+  for(let i=0;i<120;i++){ const m=0.5*(lo+hi), v=theta_beta(M1,m,g)-theta;
+    if(!strong){ if(v>0)hi=m; else lo=m; } else { if(v>0)lo=m; else hi=m; } }
+  const beta=0.5*(lo+hi), b=beta*Math.PI/180, Mn1=M1*Math.sin(b), ns=nshock(Mn1,g);
+  return {beta,theta,theta_max:tmax,Mn1,Mn2:ns.M2,M2:ns.M2/Math.sin(b-theta*Math.PI/180),
+    p2p1:ns.p2p1,r2r1:ns.r2r1,T2T1:ns.T2T1,p02p01:ns.p02p01};
+}
+function oblique_real(M1,T1,p1,theta,givenBeta,gas,strong){
+  const a1=Math.sqrt(GAM*R_air*T1), V1=M1*a1, rho1=p1/(R_air*T1), h1=frozenAir(T1,p1).h;
+  const thetaOf=beta=>{ const b=beta*Math.PI/180, un1=V1*Math.sin(b); if(un1<=a1) return null;
+    const sh=shockReacting(p1,T1,rho1,h1,un1,gas); const eps=rho1/sh.rho2;
+    return {theta:(b-Math.atan(eps*Math.tan(b)))*180/Math.PI, sh, eps, b}; };
+  let beta, theta_max=null;
+  if(givenBeta!=null){ beta=givenBeta; }
+  else{
+    // seed from the perfect-gas solution, then secant-refine on the real θ(β)
+    const pg=oblique_pg(M1,theta,GAMMA(),strong);
+    if(pg.detached) return {detached:true, theta_max:pg.theta_max};
+    theta_max=pg.theta_max;
+    let b0=pg.beta, b1=pg.beta+(strong?-1.5:1.5);
+    const tv=b=>{ const r=thetaOf(b); return r?r.theta:-90; };
+    let f0=tv(b0)-theta, f1=tv(b1)-theta;
+    for(let i=0;i<14;i++){
+      if(!isFinite(f1)||Math.abs(f1-f0)<1e-9) break;
+      const b2=b1-f1*(b1-b0)/(f1-f0), f2=tv(b2)-theta;
+      b0=b1; f0=f1; b1=b2; f1=f2;
+      if(Math.abs(f2)<5e-4) break;
+    }
+    beta=b1;
+  }
+  const r=thetaOf(beta); if(!r) return {detached:true, theta_max};
+  const b=r.b, sh=r.sh, un2=sh.u2, a2=sh.u2/sh.M2, vt=V1*Math.cos(b), V2=Math.sqrt(un2*un2+vt*vt);
+  return {beta, theta:r.theta, theta_max, Mn1:V1*Math.sin(b)/a1, M2:V2/a2, T2:sh.T2, p2:sh.p2,
+    r2r1:sh.rho2/rho1, comp:sh.comp, p02p01:null};
+}
+
+/* ---- Taylor-Maccoll cone (perfect gas) ---- */
+function Vbar(M,g){ return 1/Math.sqrt(1+2/((g-1)*M*M)); }
+function MfromV(V,g){ return Math.sqrt(2*V*V/((g-1)*(1-V*V))); }
+function tm_sigma(M1,beta,g){
+  const b=beta*Math.PI/180, delta=theta_beta(M1,beta,g); if(delta<0) return null;
+  const d=delta*Math.PI/180, ns=nshock(M1*Math.sin(b),g), M2=ns.M2/Math.sin(b-d), V=Vbar(M2,g);
+  let Vr=V*Math.cos(b-d), Vth=-V*Math.sin(b-d), th=b; const dth=-2e-4;
+  const der=(theta,Vr,Vth)=>{ const k=(g-1)/2*(1-Vr*Vr-Vth*Vth), den=k-Vth*Vth;
+    return [Vth, (Vth*Vth*Vr - k*(2*Vr+Vth/Math.tan(theta)))/den]; };
+  for(let s=0;s<200000&&th>1e-4;s++){
+    const k1=der(th,Vr,Vth), k2=der(th+dth/2,Vr+dth/2*k1[0],Vth+dth/2*k1[1]),
+          k3=der(th+dth/2,Vr+dth/2*k2[0],Vth+dth/2*k2[1]), k4=der(th+dth,Vr+dth*k3[0],Vth+dth*k3[1]);
+    const Vrn=Vr+dth/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]), Vthn=Vth+dth/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    if(Vthn>=0){ const fr=Vth/(Vth-Vthn); return {sigma:(th+fr*dth)*180/Math.PI, Msurf:MfromV(Vr+fr*(Vrn-Vr),g), M2}; }
+    Vr=Vrn; Vth=Vthn; th+=dth;
+  }
+  return null;
+}
+function cone_solve(M1,sigma,g){
+  let lo=Math.asin(1/M1)*180/Math.PI+0.05, hi=70;
+  const s=b=>{ const r=tm_sigma(M1,b,g); return r?r.sigma:-90; };
+  if(s(hi)<sigma) return {detached:true};
+  for(let i=0;i<60;i++){ const m=0.5*(lo+hi); if(s(m)>sigma)hi=m; else lo=m; }
+  const beta=0.5*(lo+hi), r=tm_sigma(M1,beta,g), Mn1=M1*Math.sin(beta*Math.PI/180);
+  const p0r=isen(M1,g).p0p*nshock(Mn1,g).p02p01;          // p0 behind shock / p1
+  const psurf=p0r/isen(r.Msurf,g).p0p;                    // p_surf / p1
+  return {beta, Msurf:r.Msurf, M2:r.M2, psurf, Cp:(psurf-1)/(0.5*g*M1*M1)};
+}
+
+/* ---- Prandtl-Meyer ---- */
+function pm_solve(M1,dtheta,g){
+  const s1=isen(M1,g); if(M1<1) return null;
+  const nu2=s1.nu+dtheta, M2=M_from_nu(nu2,g), s2=isen(M2,g);
+  return {M1,M2,nu1:s1.nu,nu2,mu1:s1.mu,mu2:s2.mu,
+    p2p1:s1.p0p/s2.p0p, T2T1:s1.T0T/s2.T0T, r2r1:s1.r0r/s2.r0r};
+}
+
+/* ---- minimal SVG line plot ---- */
+function svgPlot(series,opt){
+  opt=opt||{}; const W=680,H=340,mL=60,mR=16,mT=16,mB=40;
+  const xs=[].concat(...series.map(s=>s.x)).filter(v=>isFinite(v)),
+        ys=[].concat(...series.map(s=>s.y)).filter(v=>isFinite(v));
+  if(!xs.length||!ys.length) return '<div class="note">No data to plot.</div>';
+  let xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);
+  if(opt.ymin!=null)ymin=opt.ymin;
+  if(xmin===xmax)xmax=xmin+1; if(ymin===ymax)ymax=ymin+1;
+  const yp=(ymax-ymin)*0.08; ymin-=yp; ymax+=yp;
+  const X=v=>mL+(v-xmin)/(xmax-xmin)*(W-mL-mR), Y=v=>H-mB-(v-ymin)/(ymax-ymin)*(H-mT-mB);
+  let g='';
+  for(let i=0;i<=6;i++){ const v=xmin+(xmax-xmin)*i/6, x=X(v);
+    g+=`<line x1="${x.toFixed(1)}" y1="${mT}" x2="${x.toFixed(1)}" y2="${H-mB}" stroke="#1c2840"/>`;
+    g+=`<text x="${x.toFixed(1)}" y="${H-mB+15}" font-size="10" text-anchor="middle">${(+v.toPrecision(3))}</text>`; }
+  for(let i=0;i<=5;i++){ const v=ymin+(ymax-ymin)*i/5, y=Y(v);
+    g+=`<line x1="${mL}" y1="${y.toFixed(1)}" x2="${W-mR}" y2="${y.toFixed(1)}" stroke="#1c2840"/>`;
+    g+=`<text x="${mL-6}" y="${(y+3).toFixed(1)}" font-size="10" text-anchor="end">${(+v.toPrecision(3))}</text>`; }
+  series.forEach(s=>{ const pts=s.x.map((x,i)=>isFinite(x)&&isFinite(s.y[i])?`${X(x).toFixed(1)},${Y(s.y[i]).toFixed(1)}`:null).filter(Boolean).join(' ');
+    g+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2"/>`; });
+  (opt.points||[]).forEach(p=>{ g+=`<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="4.5" fill="${p.color||'#fff'}" stroke="#06223a"/>`;
+    if(p.label) g+=`<text x="${(X(p.x)+8).toFixed(1)}" y="${(Y(p.y)-6).toFixed(1)}" font-size="10" fill="${p.color||'#fff'}">${p.label}</text>`; });
+  g+=`<text x="${(mL+W-mR)/2}" y="${H-4}" font-size="11" text-anchor="middle">${opt.xlabel||''}</text>`;
+  g+=`<text x="13" y="${(mT+H-mB)/2}" font-size="11" text-anchor="middle" transform="rotate(-90 13 ${(mT+H-mB)/2})">${opt.ylabel||''}</text>`;
+  let lx=mL+8; series.filter(s=>s.label).forEach(s=>{ g+=`<rect x="${lx}" y="${mT+2}" width="13" height="3" fill="${s.color}"/><text x="${lx+17}" y="${mT+8}" font-size="10">${s.label}</text>`; lx+=s.label.length*6.5+34; });
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+}
+
+/* ---- render helpers ---- */
+function row(k,v,u){ return `<tr><td>${k}</td><td class="num">${v}${u?' <span class="muted">'+u+'</span>':''}</td></tr>`; }
+function card(title,inner){ return `<div class="card"><h3>${title}</h3>${inner}</div>`; }
+function ftable(rows){ return `<div class="tablewrap"><table><tbody>${rows.join('')}</tbody></table></div>`; }
+
+/* ---- TAB COMPUTES ---- */
+function computeIsen(){
+  const g=GAMMA(), which=document.getElementById('isen-var').value, val=+document.getElementById('isen-val').value;
+  let M;
+  if(which==='M')M=val;
+  else if(which==='p0p')M=Math.sqrt((Math.pow(val,(g-1)/g)-1)*2/(g-1));
+  else if(which==='T0T')M=Math.sqrt(Math.max(val-1,0)*2/(g-1));
+  else if(which==='r0r')M=Math.sqrt((Math.pow(val,(g-1))-1)*2/(g-1));
+  else if(which==='AAsub')M=M_from_AAs(val,g,'sub');
+  else if(which==='AAsup')M=M_from_AAs(val,g,'sup');
+  else if(which==='mu')M=1/Math.sin(val*Math.PI/180);
+  else if(which==='nu')M=M_from_nu(val,g);
+  const out=document.getElementById('out-isen');
+  if(!(M>0)||isNaN(M)){ out.innerHTML=`<div class="warnbox">No valid solution for that input.</div>`; return; }
+  const s=isen(M,g), reg=M<0.8?'Subsonic':M<1.2?'Transonic':M<5?'Supersonic':'Hypersonic';
+  out.innerHTML=card(`Result &nbsp;<span class="pill" style="background:#3da9fc;color:#06223a">M = ${fmt(M,4)} · ${reg}</span>`,
+    ftable([row('Mach number M',fmt(M,4)),row('T₀/T (temperature ratio)',fmt(s.T0T,4)),row('p₀/p',fmt(s.p0p,4)),
+      row('ρ₀/ρ',fmt(s.r0r,4)),row('T/T₀',fmt(1/s.T0T,4)),row('p/p₀',fmt(1/s.p0p,4)),row('ρ/ρ₀',fmt(1/s.r0r,4)),
+      row('Area ratio A/A*',fmt(s.AAs,4)),row('Mach angle μ',s.mu?fmt(s.mu,3):'—','°'),
+      row('Prandtl–Meyer angle ν',s.nu?fmt(s.nu,3):'—','°')]))
+    +`<div class="note">γ = ${g}. T₀/p₀/ρ₀ are stagnation (total) values; multiply your static T, p, ρ by these to get totals.</div>`;
+}
+function computeNS(){
+  const g=GAMMA(), which=document.getElementById('ns-var').value, val=+document.getElementById('ns-val').value;
+  const M1=nshock_fromVar(which,val,g), out=document.getElementById('out-ns');
+  if(!(M1>=1)){ out.innerHTML=`<div class="warnbox">Upstream flow must be supersonic (M₁ ≥ 1). No solution.</div>`; return; }
+  const n=nshock(M1,g);
+  out.innerHTML=card(`Result &nbsp;<span class="pill" style="background:#ff7849;color:#06223a">M₁ = ${fmt(M1,4)}</span>`,
+    ftable([row('Upstream Mach M₁',fmt(M1,4)),row('Downstream Mach M₂',fmt(n.M2,4)),
+      row('Static pressure ratio p₂/p₁',fmt(n.p2p1,4)),row('Density ratio ρ₂/ρ₁',fmt(n.r2r1,4)),
+      row('Temperature ratio T₂/T₁',fmt(n.T2T1,4)),row('Total-pressure ratio p₀₂/p₀₁',fmt(n.p02p01,4)),
+      row('Pitot ratio p₀₂/p₁',fmt(n.p02p01*isen(M1,g).p0p,4))]))
+    +`<div class="note">γ = ${g}. Across a normal shock entropy rises, so p₀₂/p₀₁ &lt; 1.</div>`;
+}
+function computeObl(){
+  const g=GAMMA(), M1=+document.getElementById('obl-M').value, given=document.getElementById('obl-given').value,
+        val=+document.getElementById('obl-val').value, strong=document.getElementById('obl-sol').value==='strong',
+        gas=document.getElementById('obl-gas').value, out=document.getElementById('out-obl');
+  document.getElementById('obl-vlab').textContent=(given==='theta'?'θ (°)':'β (°)');
+  document.getElementById('obl-realrow').style.display=(gas==='pg')?'none':'flex';
+  if(!(M1>1)){ out.innerHTML=`<div class="warnbox">Need supersonic M₁ &gt; 1.</div>`; return; }
+  let r, plotPts=[];
+  if(gas==='pg'){
+    let theta = given==='theta'?val:theta_beta(M1,val,g);
+    if(given==='beta'&&theta<0){ out.innerHTML=`<div class="warnbox">Wave angle below the Mach angle — no shock.</div>`; return; }
+    r=oblique_pg(M1,theta,g,strong);
+    if(given==='beta'){ r=oblique_pg(M1,theta,g,false); r.beta=val; const b=val*Math.PI/180,Mn1=M1*Math.sin(b),ns=nshock(Mn1,g);
+      r.Mn1=Mn1; r.M2=ns.M2/Math.sin(b-theta*Math.PI/180); r.p2p1=ns.p2p1; r.r2r1=ns.r2r1; r.T2T1=ns.T2T1; r.p02p01=ns.p02p01; r.theta=theta; }
+  } else {
+    const T1=+document.getElementById('obl-T').value, p1=+document.getElementById('obl-p').value;
+    r = given==='theta' ? oblique_real(M1,T1,p1,val,null,gas,strong) : oblique_real(M1,T1,p1,null,val,gas,strong);
+  }
+  if(r.detached){ out.innerHTML=`<div class="warnbox">Shock is <b>detached</b> — the requested deflection (${fmt(val,1)}°) exceeds θ_max ≈ ${fmt(r.theta_max,2)}° for M₁ = ${M1}. A bow shock forms (use the Aerothermo tab).</div>`; return; }
+  // theta-beta-M curve (perfect gas reference)
+  const xc=[],yc=[]; for(let b=Math.asin(1/M1)*180/Math.PI+0.01;b<90;b+=0.4){ const t=theta_beta(M1,b,g); if(t>=0){xc.push(t);yc.push(b);} }
+  const plot=svgPlot([{x:xc,y:yc,color:'#3da9fc',label:'β(θ), M₁='+M1}],
+    {xlabel:'flow deflection θ (°)',ylabel:'wave angle β (°)',points:[{x:r.theta,y:r.beta,color:'#ff7849',label:(strong?'strong':'weak')}]});
+  const rows=[row('Wave angle β',fmt(r.beta,3),'°'),row('Flow deflection θ',fmt(r.theta,3),'°'),
+      row('Normal-component M<sub>n1</sub>',fmt(r.Mn1,4)),row('Downstream Mach M₂',fmt(r.M2,4)),
+      row('Pressure ratio p₂/p₁',gas==='pg'?fmt(r.p2p1,4):fmt(r.p2/(+document.getElementById('obl-p').value),3)),
+      row('Density ratio ρ₂/ρ₁',fmt(r.r2r1,4)),
+      gas==='pg'?row('Temperature ratio T₂/T₁',fmt(r.T2T1,4)):row('Post-shock T₂',fmt(r.T2,0),'K'),
+      r.p02p01!=null?row('Total-pressure ratio p₀₂/p₀₁',fmt(r.p02p01,4)):''];
+  let comp=''; if(r.comp){ comp=`<div class="note">Equilibrium post-shock composition (mole %): `+
+      ['O2','N2','NO','O','N'].map(s=>`${s.replace('2','₂')} ${(100*(r.comp.x[s]||0)).toFixed(2)}`).join(' · ')+`</div>`; }
+  out.innerHTML=card(`Oblique shock &nbsp;<span class="pill" style="background:#ffd166;color:#06223a">${strong?'strong':'weak'} solution</span>`,
+    ftable(rows)+comp)+card('θ–β–M diagram',plot)
+    +`<div class="note">θ_max for M₁ = ${M1}: ${r.theta_max?fmt(r.theta_max,2)+'°':'—'}. Tangential velocity is preserved; M₂ uses the full velocity.</div>`;
+}
+function computeCone(){
+  const g=GAMMA(), M1=+document.getElementById('cone-M').value, sigma=+document.getElementById('cone-s').value, out=document.getElementById('out-cone');
+  if(!(M1>1)){ out.innerHTML=`<div class="warnbox">Need supersonic M₁ &gt; 1.</div>`; return; }
+  const r=cone_solve(M1,sigma,g);
+  if(r.detached){ out.innerHTML=`<div class="warnbox">No attached conical shock for σ = ${sigma}° at M₁ = ${M1} (cone angle too large → detached bow shock).</div>`; return; }
+  out.innerHTML=card(`Conical shock &nbsp;<span class="pill" style="background:#43d9a3;color:#06223a">σ = ${sigma}°</span>`,
+    ftable([row('Cone half-angle σ',fmt(sigma,2),'°'),row('Shock wave angle β',fmt(r.beta,3),'°'),
+      row('Mach just behind shock',fmt(r.M2,4)),row('Surface Mach M_c',fmt(r.Msurf,4)),
+      row('Surface pressure ratio p_c/p∞',fmt(r.psurf,4)),row('Surface pressure coeff. C_p',fmt(r.Cp,4))]))
+    +`<div class="note">γ = ${g}. Conical shocks lie closer to the body than wedge shocks of the same angle, and the flow between shock and cone is non-uniform (compresses toward the surface).</div>`;
+}
+function computePM(){
+  const g=GAMMA(), M1=+document.getElementById('pm-M').value, d=+document.getElementById('pm-d').value, out=document.getElementById('out-pm');
+  if(!(M1>=1)){ out.innerHTML=`<div class="warnbox">Prandtl–Meyer expansion needs M₁ ≥ 1.</div>`; return; }
+  const r=pm_solve(M1,d,g);
+  out.innerHTML=card(`Expansion &nbsp;<span class="pill" style="background:#7bdff2;color:#06223a">Δθ = ${d}°</span>`,
+    ftable([row('Upstream Mach M₁',fmt(M1,4)),row('Downstream Mach M₂',fmt(r.M2,4)),
+      row('ν(M₁)',fmt(r.nu1,3),'°'),row('ν(M₂)',fmt(r.nu2,3),'°'),
+      row('Mach angle μ₁ → μ₂',fmt(r.mu1,2)+' → '+fmt(r.mu2,2),'°'),
+      row('Pressure ratio p₂/p₁',fmt(r.p2p1,4)),row('Temperature ratio T₂/T₁',fmt(r.T2T1,4)),
+      row('Density ratio ρ₂/ρ₁',fmt(r.r2r1,4))]))
+    +`<div class="note">γ = ${g}. Flow accelerates (M↑) and p, T, ρ drop through the expansion fan; total conditions are unchanged.</div>`;
+}
+function computeAtm(){
+  const z=U.from('alt',+document.getElementById('atm-z').value), out=document.getElementById('out-atm');
+  const a=atmosphere(z), rho=a.p/(R_air*a.T), c=Math.sqrt(1.4*R_air*a.T), mu=muSutherland(a.T);
+  document.getElementById('atm-zlab').textContent='Geometric altitude ('+U.lab('alt')+')';
+  out.innerHTML=card(`Atmosphere at ${fmt(U.to('alt',z),2)} ${U.lab('alt')}`,
+    ftable([row('Temperature T',fmt(U.to('temp',a.T),2),U.lab('temp')),
+      row('Pressure p',fmt(U.to('pres',a.p),4),U.lab('pres')),
+      row('Density ρ',fmt(U.to('rho',rho),5),U.lab('rho')),
+      row('Speed of sound a',fmt(U.to('vel',c),2),U.lab('vel')),
+      row('Dynamic viscosity μ',fmt(mu,4),'Pa·s'),
+      row('Pressure ratio p/p_SL',fmt(a.p/101325,5)),row('Density ratio ρ/ρ_SL',fmt(rho/1.225,5))]))
+    +`<div class="note">US Standard Atmosphere 1976 (valid to 86 km). Speed of sound and viscosity assume air, γ=1.4.</div>`;
+}
+function refreshTrajLabels(){
+  const sv=document.getElementById('tr-var').value;
+  const L={V:['Velocity from ('+U.lab('vel')+')','to ('+U.lab('vel')+')','Altitude ('+U.lab('alt')+')'],
+           M:['Mach from','Mach to','Altitude ('+U.lab('alt')+')'],
+           alt:['Altitude from ('+U.lab('alt')+')','to ('+U.lab('alt')+')','Velocity ('+U.lab('vel')+')']}[sv];
+  document.getElementById('tr-lolab').textContent=L[0];
+  document.getElementById('tr-hilab').textContent=L[1];
+  document.getElementById('tr-altlab').textContent=L[2];
+  document.getElementById('tr-rnlab').textContent='Rₙ ('+U.lab('len')+')';
+}
+function computeTraj(){
+  refreshTrajLabels();
+  const sv=document.getElementById('tr-var').value, lo=+document.getElementById('tr-lo').value, hi=+document.getElementById('tr-hi').value,
+    n=Math.max(2,Math.min(120,+document.getElementById('tr-n').value|0)), gas=document.getElementById('tr-gas').value,
+    Rn=U.from('len',+document.getElementById('tr-rn').value)/1000, sec=+document.getElementById('tr-alt').value, out=document.getElementById('out-traj');
+  const xs=[],T0=[],qF=[],qS=[],so=[]; const inp={Rn,bodyType:'sphere',Tw:300,catal:'noncat'};
+  for(let k=0;k<n;k++){ const val=lo+(hi-lo)*k/(n-1); let T,p,V;
+    if(sv==='V'){ const a=atmosphere(U.from('alt',sec)); T=a.T;p=a.p; V=U.from('vel',val); xs.push(val); }
+    else if(sv==='M'){ const a=atmosphere(U.from('alt',sec)); T=a.T;p=a.p; V=val*Math.sqrt(1.4*R_air*T); xs.push(val); }
+    else { const a=atmosphere(U.from('alt',val)); T=a.T;p=a.p; V=U.from('vel',sec); xs.push(val); }
+    const fs=fsFrom(T,p,V), r=runModel(gas,fs,inp);
+    T0.push(U.to('temp',r.T0||r.T0_isen)); qF.push(r.qFR!=null?U.to('q',r.qFR/1e6):NaN);
+    qS.push(r.qSG!=null?U.to('q',r.qSG/1e6):NaN); so.push(r.standoff_mm!=null?U.to('len',r.standoff_mm):NaN);
+  }
+  const xl={V:'velocity ('+U.lab('vel')+')',M:'Mach number',alt:'altitude ('+U.lab('alt')+')'}[sv];
+  out.innerHTML=
+    card('Stagnation temperature T₀',svgPlot([{x:xs,y:T0,color:'#ff7849'}],{xlabel:xl,ylabel:'T₀ ('+U.lab('temp')+')',ymin:0}))
+   +card('Stagnation heat flux',svgPlot([{x:xs,y:qF,color:'#3da9fc',label:'Fay–Riddell'},{x:xs,y:qS,color:'#43d9a3',label:'Sutton–Graves'}],{xlabel:xl,ylabel:'q ('+U.lab('q')+')',ymin:0}))
+   +card('Shock stand-off Δ',svgPlot([{x:xs,y:so,color:'#ffd166'}],{xlabel:xl,ylabel:'Δ ('+U.lab('len')+')',ymin:0}))
+   +`<div class="note">Gas model: ${({ideal:'ideal',real:'real',s5:'5-species equilibrium'})[gas]}. Sphere, Rₙ = ${fmt(U.to('len',Rn*1000),1)} ${U.lab('len')}, cold wall 300 K, non-catalytic.</div>`;
+}
+function fsFrom(T,p,V){
+  const a=Math.sqrt(GAM*R_air*T), M=V/a, rho=p/(R_air*T), mu=muSutherland(T), Re=rho*V/mu;
+  const h1=frozenAir(T,p).h, h0=h1+0.5*V*V;
+  let regime=M<0.8?'Subsonic':M<1.2?'Transonic':M<5?'Supersonic':'Hypersonic';
+  return {T,p,a,V,M,rho,mu,Re,h1,h0,regime,supersonic:M>1};
+}
+
+/* ---- tab switching + wiring ---- */
+let activeTab='isen';
+const COMPUTE={isen:computeIsen,ns:computeNS,obl:computeObl,cone:computeCone,pm:computePM,aero:computeAll,atm:computeAtm,traj:computeTraj};
+function recomputeActive(){ try{ (COMPUTE[activeTab]||(()=>{}))(); }catch(e){ console.error(e); } }
+function showTab(t){ activeTab=t;
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+t));
+  document.querySelectorAll('#tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  if(t!=='aero') recomputeActive();
+}
+document.querySelectorAll('#tabbar button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+// live recompute on input within each tool panel (except aero, which has its own button)
+['tab-isen','tab-ns','tab-obl','tab-cone','tab-pm','tab-atm','tab-traj'].forEach(id=>{
+  const p=document.getElementById(id);
+  p.addEventListener('input',recomputeActive); p.addEventListener('change',recomputeActive);
+});
+document.getElementById('gam').addEventListener('input',recomputeActive);
+let prevUnits='SI';
+document.getElementById('units').addEventListener('change',()=>{
+  const next=document.getElementById('units').value;
+  const conv=(idu)=>{ const [id,t]=idu; const el=document.getElementById(id); if(!el)return;
+    const si=(+el.value)/U.d[t][prevUnits][1]; el.value=+(si*U.d[t][next][1]).toPrecision(6);
+    const span=el.parentNode.querySelector('.unit'); if(span)span.textContent=U.d[t][next][0]; };
+  [['vel','vel'],['temp','temp'],['pres','pres'],['rn','len'],['tw','temp'],['alt','alt'],
+   ['atm-z','alt'],['tr-rn','len'],['tr-alt','alt']].forEach(conv);
+  prevUnits=next; U.sys=next; updateAltReadout(); refreshTrajLabels(); recomputeActive();
+});
+// export
+document.getElementById('btnCsv').addEventListener('click',()=>{
+  const panel=document.querySelector('.tabpanel.active'), tbls=panel.querySelectorAll('table');
+  if(!tbls.length){ alert('No table on this tab to export.'); return; }
+  let csv=''; tbls.forEach((tbl,ti)=>{ csv+=(ti?'\n':'')+[...tbl.querySelectorAll('tr')].map(tr=>
+    [...tr.querySelectorAll('th,td')].map(c=>'"'+c.textContent.trim().replace(/"/g,'""')+'"').join(',')).join('\n')+'\n'; });
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='calc_'+activeTab+'.csv'; a.click();
+});
+document.getElementById('btnPrint').addEventListener('click',()=>window.print());
+// oblique gas/given listeners already covered by panel 'change'; init labels
+refreshTrajLabels();
+showTab('isen');   // default landing tab
 </script>
 </body>
 </html>
