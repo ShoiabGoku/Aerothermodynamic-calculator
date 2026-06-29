@@ -120,6 +120,7 @@
   <button data-tab="cone">Cone (Taylor–Maccoll)</button>
   <button data-tab="pm">Prandtl–Meyer</button>
   <button data-tab="aero">Aerothermo (real gas)</button>
+  <button data-tab="stube">Shock tube / tunnel</button>
   <button data-tab="atm">Atmosphere</button>
   <button data-tab="traj">Trajectory sweep</button>
 </div>
@@ -354,6 +355,33 @@
   </div>
   <div class="note">Sweeps the aerothermo solver to plot stagnation T₀, heat flux (Fay–Riddell &amp; Sutton–Graves) and shock stand-off — e.g. along a re-entry trajectory.</div>
   <div id="out-traj"></div>
+ </div>
+</section>
+
+<!-- ===================== TAB: SHOCK TUBE / TUNNEL ===================== -->
+<section id="tab-stube" class="tabpanel">
+ <div class="tool" style="max-width:1180px">
+  <h2>Shock tube / reflected-shock tunnel</h2>
+  <div class="inrow">
+    <div class="field"><label>Driver gas (high p)</label>
+      <select id="st-dg"><option value="he">Helium</option><option value="air">Air</option><option value="n2">Nitrogen</option><option value="h2">Hydrogen</option><option value="ar">Argon</option><option value="co2">CO₂</option></select></div>
+    <div class="field sm"><label>Driver p₄</label><div class="row"><input id="st-p4" type="number" value="2000000"><span class="unit">Pa</span></div></div>
+    <div class="field sm"><label>Driver T₄</label><div class="row"><input id="st-T4" type="number" value="300"><span class="unit">K</span></div></div>
+    <div class="field sm"><label>Driver length L₄</label><div class="row"><input id="st-L4" type="number" value="3"><span class="unit">m</span></div></div>
+  </div>
+  <div class="inrow">
+    <div class="field"><label>Driven gas (low p, test gas)</label>
+      <select id="st-vg"><option value="air">Air</option><option value="n2">Nitrogen</option><option value="ar">Argon</option><option value="co2">CO₂</option><option value="he">Helium</option></select></div>
+    <div class="field sm"><label>Driven p₁</label><div class="row"><input id="st-p1" type="number" value="10000"><span class="unit">Pa</span></div></div>
+    <div class="field sm"><label>Driven T₁</label><div class="row"><input id="st-T1" type="number" value="300"><span class="unit">K</span></div></div>
+    <div class="field sm"><label>Driven length L₁</label><div class="row"><input id="st-L1" type="number" value="5"><span class="unit">m</span></div></div>
+  </div>
+  <div class="inrow">
+    <div class="field sm"><label>Nozzle area ratio A_e/A* (tunnel)</label><input id="st-ar" type="number" value="100"></div>
+    <div class="field sm"><label>Snapshot time (× t to wall)</label><input id="st-tf" type="number" step="0.05" value="0.7"></div>
+  </div>
+  <div class="note">Ideal (perfect-gas) shock tube. Burst the diaphragm: an incident shock runs into the driven gas, a contact surface and an expansion fan form; the shock reflects off the closed end to make the high-enthalpy reservoir (region 5) that feeds the nozzle. Set the driver pressure high enough that p₄ &gt; p₁.</div>
+  <div id="out-stube"></div>
  </div>
 </section>
 
@@ -948,6 +976,7 @@ const U={ sys:'SI',
      temp:{SI:['K',1],US:['°R',1.8]},
      pres:{SI:['Pa',1],US:['psi',1.4503773773e-4]},
      len:{SI:['mm',1],US:['in',0.03937007874]},
+     lenm:{SI:['m',1],US:['ft',3.280839895]},
      alt:{SI:['km',1],US:['kft',3.280839895]},
      q:{SI:['MW/m²',1],US:['BTU/ft²·s',88.0550]},
      rho:{SI:['kg/m³',1],US:['slug/ft³',0.001940320]}},
@@ -1245,9 +1274,113 @@ function fsFrom(T,p,V){
   return {T,p,a,V,M,rho,mu,Re,h1,h0,regime,supersonic:M>1};
 }
 
+/* ---- SHOCK TUBE / REFLECTED-SHOCK TUNNEL ---- */
+const GASES={air:{g:1.4,R:287.05,n:'Air'},he:{g:1.667,R:2077,n:'Helium'},
+  n2:{g:1.4,R:296.8,n:'N₂'},ar:{g:1.667,R:208.1,n:'Argon'},co2:{g:1.289,R:188.9,n:'CO₂'},h2:{g:1.405,R:4124,n:'H₂'}};
+function stube_p2p1(p4p1,g1,g4,a1,a4){            // solve shock-tube equation for p2/p1
+  const f=x=>{ const s=2*g1*(2*g1+(g1+1)*(x-1)); if(s<=0)return 1e9;
+    const term=1-(g4-1)*(a1/a4)*(x-1)/Math.sqrt(s); if(term<=0)return 1e9;
+    return x*Math.pow(term,-2*g4/(g4-1))-p4p1; };
+  let lo=1.0000001,hi=p4p1;
+  for(let i=0;i<200;i++){ const m=0.5*(lo+hi); if(f(m)>0)hi=m; else lo=m; }
+  return 0.5*(lo+hi);
+}
+function computeStube(){
+  const dg=GASES[document.getElementById('st-dg').value], vg=GASES[document.getElementById('st-vg').value];
+  const p4=U.from('pres',+document.getElementById('st-p4').value), T4=U.from('temp',+document.getElementById('st-T4').value),
+        p1=U.from('pres',+document.getElementById('st-p1').value), T1=U.from('temp',+document.getElementById('st-T1').value),
+        L1=U.from('lenm',+document.getElementById('st-L1').value), L4=U.from('lenm',+document.getElementById('st-L4').value),
+        AeAs=+document.getElementById('st-ar').value, tf=Math.min(0.98,Math.max(0.05,+document.getElementById('st-tf').value));
+  const out=document.getElementById('out-stube'), g1=vg.g,R1=vg.R,g4=dg.g,R4=dg.R;
+  if(!(p4>p1)){ out.innerHTML=`<div class="warnbox">Driver pressure p₄ must exceed driven pressure p₁.</div>`; return; }
+  const a1=Math.sqrt(g1*R1*T1), a4=Math.sqrt(g4*R4*T4), rho1=p1/(R1*T1), rho4=p4/(R4*T4);
+  const p2p1=stube_p2p1(p4/p1,g1,g4,a1,a4);
+  const Ms=Math.sqrt((g1+1)/(2*g1)*(p2p1-1)+1), Ws=Ms*a1;
+  const T2T1=(2*g1*Ms*Ms-(g1-1))*((g1-1)*Ms*Ms+2)/((g1+1)*(g1+1)*Ms*Ms);
+  const r2r1=(g1+1)*Ms*Ms/((g1-1)*Ms*Ms+2);
+  const u2=(2*a1/(g1+1))*(Ms-1/Ms), p2=p2p1*p1, T2=T1*T2T1, rho2=rho1*r2r1, a2=a1*Math.sqrt(T2T1);
+  const p3=p2, T3=T4*Math.pow(p3/p4,(g4-1)/g4), a3=a4*Math.pow(p3/p4,(g4-1)/(2*g4)),
+        u3=(2*a4/(g4-1))*(1-Math.pow(p3/p4,(g4-1)/(2*g4))), rho3=p3/(R4*T3);
+  const K=u2*(g1+1)/(2*a2), Mr=(K+Math.sqrt(K*K+4))/2;     // reflected shock (u5=0)
+  const p5p2=1+2*g1/(g1+1)*(Mr*Mr-1), T5T2=(2*g1*Mr*Mr-(g1-1))*((g1-1)*Mr*Mr+2)/((g1+1)*(g1+1)*Mr*Mr);
+  const p5=p2*p5p2, T5=T2*T5T2, rho5=rho2*((g1+1)*Mr*Mr/((g1-1)*Mr*Mr+2)), Ur=Mr*a2-u2;
+  const fanHead=-a4, fanTail=u3-a3;
+  const t_s=L1/Ws, t_meet=(L1+Ur*t_s)/(u2+Ur), t_max=Math.max(t_meet*1.12,t_s*1.45);
+  let nz=null;
+  if(AeAs>1){ const Me=M_from_AAs(AeAs,g1,'sup'), s=isen(Me,g1), Te=T5/s.T0T, pe=p5/s.p0p,
+    Ve=Me*Math.sqrt(g1*R1*Te), rhoe=pe/(R1*Te); nz={Me,Te,pe,Ve,rhoe,Re:rhoe*Ve/muSutherland(Te)}; }
+  const P=v=>fmt(U.to('pres',v),Math.abs(v)>1e5?0:2), TT=v=>fmt(U.to('temp',v),0), VL=v=>fmt(U.to('vel',v),0);
+  const regTbl=`<div class="tablewrap"><table><thead><tr><th>Region</th><th>p (${U.lab('pres')})</th><th>T (${U.lab('temp')})</th><th>ρ (kg/m³)</th><th>u (${U.lab('vel')})</th><th>a (${U.lab('vel')})</th></tr></thead><tbody>`+
+    [['1 — driven, quiescent',p1,T1,rho1,0,a1],['2 — behind incident shock',p2,T2,rho2,u2,a2],
+     ['3 — expanded driver',p3,T3,rho3,u3,a3],['4 — driver, quiescent',p4,T4,rho4,0,a4],
+     ['5 — reservoir (reflected)',p5,T5,rho5,0,Math.sqrt(g1*R1*T5)]].map(r=>
+     `<tr><td>${r[0]}</td><td class="num">${P(r[1])}</td><td class="num">${TT(r[2])}</td><td class="num">${fmt(r[3],4)}</td><td class="num">${VL(r[4])}</td><td class="num">${VL(r[5])}</td></tr>`).join('')+`</tbody></table></div>`;
+  const keyTbl=ftable([row('Diaphragm pressure ratio p₄/p₁',fmt(p4/p1,2)),
+    row('Incident shock strength p₂/p₁',fmt(p2p1,3)),row('Incident shock Mach M_s',fmt(Ms,4)),
+    row('Incident shock speed W_s',VL(Ws),U.lab('vel')),row('Contact-surface speed u₂ = u₃',VL(u2),U.lab('vel')),
+    row('Reflected shock Mach M_r',fmt(Mr,4)),row('Reflected shock speed W_r',VL(Ur),U.lab('vel')),
+    row('Reservoir pressure p₅',P(p5),U.lab('pres')),row('Reservoir temperature T₅',TT(T5),U.lab('temp')),
+    row('p₅/p₁',fmt(p5/p1,2)),row('T₅/T₁',fmt(T5/T1,3)),
+    row('Reflected-shock arrival at contact',fmt(t_meet*1000,3)+' ms','')]);
+  let nzHtml=''; if(nz) nzHtml=card('Nozzle test section (reservoir → A_e/A* = '+AeAs+', frozen γ='+g1+')',
+    ftable([row('Test Mach M_e',fmt(nz.Me,3)),row('Static T_e',TT(nz.Te),U.lab('temp')),row('Static p_e',P(nz.pe),U.lab('pres')),
+      row('Velocity V_e',VL(nz.Ve),U.lab('vel')),row('Density ρ_e',fmt(nz.rhoe,5),'kg/m³'),row('Unit Reynolds Re/m',fmt(nz.Re,3),'1/m')])
+    +`<div class="note">Test-section freestream — feed M_e, p_e, T_e into the Oblique or Aerothermo tab to study a model in the tunnel.</div>`);
+  out.innerHTML=card('Key results',keyTbl)+card('Flow regions',regTbl)
+    +card('x–t wave diagram',stubeDiagram({Ws,u2,fanHead,fanTail,Ur,L1,L4,t_s,t_max,a4}))
+    +card('Property distribution at t = '+fmt(tf,2)+'·t_wall = '+fmt(tf*t_s*1000,3)+' ms',
+       stubeSnapshot({tf,t_s,Ws,u2,fanHead,fanTail,L1,L4,p1,p2,p3,p4,T1,T2,T3,T4,a4},g4))
+    +nzHtml
+    +`<div class="note">Driver: ${dg.n} (γ=${g4}). Driven: ${vg.n} (γ=${g1}). Ideal perfect-gas model — neglects diaphragm opening time, boundary-layer attenuation and real-gas effects in the hot reservoir.</div>`;
+}
+function stubeDiagram(S){
+  const W=720,H=420,mL=54,mR=14,mT=14,mB=42, xmin=-S.L4, xmax=S.L1, tmax=S.t_max;
+  const X=x=>mL+(x-xmin)/(xmax-xmin)*(W-mL-mR), Y=t=>H-mB-(t/tmax)*(H-mT-mB);
+  const L=(x1,t1,x2,t2,c,w,d)=>`<line x1="${X(x1).toFixed(1)}" y1="${Y(t1).toFixed(1)}" x2="${X(x2).toFixed(1)}" y2="${Y(t2).toFixed(1)}" stroke="${c}" stroke-width="${w||2}"${d?' stroke-dasharray="5 4"':''}/>`;
+  const T=(x,t,s,c)=>`<text x="${X(x).toFixed(1)}" y="${Y(t).toFixed(1)}" font-size="13" font-weight="700" fill="${c||'#e6edf6'}" text-anchor="middle">${s}</text>`;
+  let g=`<rect x="${mL}" y="${mT}" width="${W-mL-mR}" height="${H-mT-mB}" fill="#0e1420" stroke="#223049"/>`;
+  for(let i=0;i<=5;i++){ const x=xmin+(xmax-xmin)*i/5, px=X(x);
+    g+=`<line x1="${px.toFixed(1)}" y1="${H-mB}" x2="${px.toFixed(1)}" y2="${H-mB+4}" stroke="#8aa0bd"/><text x="${px.toFixed(1)}" y="${H-mB+16}" font-size="10" fill="#8aa0bd" text-anchor="middle">${(+x.toFixed(2))}</text>`; }
+  for(let i=0;i<=5;i++){ const t=tmax*i/5, py=Y(t);
+    g+=`<line x1="${mL-4}" y1="${py.toFixed(1)}" x2="${mL}" y2="${py.toFixed(1)}" stroke="#8aa0bd"/><text x="${mL-6}" y="${(py+3).toFixed(1)}" font-size="10" fill="#8aa0bd" text-anchor="end">${(t*1000).toFixed(2)}</text>`; }
+  g+=L(0,0,0,tmax,'#3a4a63',1,true);                         // diaphragm
+  g+=L(S.L1,0,S.L1,tmax,'#9aa7bd',3);                        // end wall
+  g+=L(-S.L4,0,-S.L4,tmax,'#6b7891',2);                      // driver back wall
+  g+=L(0,0,S.L1,S.t_s,'#ff5d73',2.6);                        // incident shock
+  const t_meet=(S.L1+S.Ur*S.t_s)/(S.u2+S.Ur), t_r=Math.min(tmax,t_meet), x_r=S.L1-S.Ur*(t_r-S.t_s);
+  g+=L(S.L1,S.t_s,x_r,t_r,'#ff7849',2.6);                    // reflected shock
+  const t_c=Math.min(tmax,t_meet);
+  g+=L(0,0,S.u2*t_c,t_c,'#cfd8e6',1.7,true);                 // contact surface
+  const nray=6;                                              // expansion fan
+  for(let i=0;i<=nray;i++){ const sp=S.fanHead+(S.fanTail-S.fanHead)*i/nray;
+    let tt=tmax,xx=sp*tmax; if(xx<-S.L4){ tt=(-S.L4)/sp; xx=-S.L4; }
+    g+=L(0,0,xx,tt,(i===0||i===nray)?'#7bdff2':'#356f86',(i===0||i===nray)?2.2:1); }
+  g+=T(S.L1*0.72,S.t_s*0.3,'1','#8aa0bd')+T(S.L1*0.42,S.t_s*0.9,'2','#ffd9c8')
+    +T(Math.max(-S.L4*0.15,S.u2*tmax*0.35),tmax*0.6,'3','#bfe6f2')+T(-S.L4*0.55,tmax*0.5,'4','#8aa0bd')
+    +T(S.L1*0.9,(S.t_s+tmax)/2,'5','#ffd166');
+  const lg=[['#ff5d73','incident shock'],['#ff7849','reflected shock'],['#cfd8e6','contact surface'],['#7bdff2','expansion fan']];
+  let lx=mL+6; lg.forEach(l=>{ g+=`<rect x="${lx}" y="${mT+4}" width="12" height="3" fill="${l[0]}"/><text x="${lx+15}" y="${mT+9}" font-size="10" fill="#8aa0bd">${l[1]}</text>`; lx+=l[1].length*6+30; });
+  g+=`<text x="${(mL+W-mR)/2}" y="${H-5}" font-size="11" fill="#8aa0bd" text-anchor="middle">position x (m)  —  driver (x&lt;0) · diaphragm at 0 · end wall at x=L₁</text>`;
+  g+=`<text x="13" y="${(mT+H-mB)/2}" font-size="11" fill="#8aa0bd" text-anchor="middle" transform="rotate(-90 13 ${(mT+H-mB)/2})">time t (ms)</text>`;
+  return `<svg class="plot" style="max-width:720px" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+}
+function stubeSnapshot(S,g4){
+  const t=S.tf*S.t_s, xH=S.fanHead*t, xT=S.fanTail*t, xC=S.u2*t, xS=S.Ws*t;
+  const xs=[],pp=[],tt=[];
+  for(let i=0;i<=260;i++){ const x=-S.L4+(S.L1+S.L4)*i/260; xs.push(x); let p,Tk;
+    if(x>xS){ p=S.p1; Tk=S.T1; } else if(x>xC){ p=S.p2; Tk=S.T2; } else if(x>xT){ p=S.p3; Tk=S.T3; }
+    else if(x>xH){ const xi=x/t, u=2/(g4+1)*(xi+S.a4), a=S.a4-(g4-1)/2*u;
+      p=S.p4*Math.pow(a/S.a4,2*g4/(g4-1)); Tk=S.T4*Math.pow(a/S.a4,2); }
+    else { p=S.p4; Tk=S.T4; }
+    pp.push(p/S.p1); tt.push(Tk/S.T1); }
+  return `<div style="display:flex;flex-wrap:wrap;gap:10px">`
+    +svgPlot([{x:xs,y:pp,color:'#ff7849'}],{xlabel:'x (m)',ylabel:'p / p₁',ymin:0})
+    +svgPlot([{x:xs,y:tt,color:'#7bdff2'}],{xlabel:'x (m)',ylabel:'T / T₁',ymin:0})+`</div>`;
+}
+
 /* ---- tab switching + wiring ---- */
 let activeTab='isen';
-const COMPUTE={isen:computeIsen,ns:computeNS,obl:computeObl,cone:computeCone,pm:computePM,aero:computeAll,atm:computeAtm,traj:computeTraj};
+const COMPUTE={isen:computeIsen,ns:computeNS,obl:computeObl,cone:computeCone,pm:computePM,aero:computeAll,atm:computeAtm,traj:computeTraj,stube:computeStube};
 function recomputeActive(){ try{ (COMPUTE[activeTab]||(()=>{}))(); }catch(e){ console.error(e); } }
 function showTab(t){ activeTab=t;
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+t));
@@ -1256,7 +1389,7 @@ function showTab(t){ activeTab=t;
 }
 document.querySelectorAll('#tabbar button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 // live recompute on input within each tool panel (except aero, which has its own button)
-['tab-isen','tab-ns','tab-obl','tab-cone','tab-pm','tab-atm','tab-traj'].forEach(id=>{
+['tab-isen','tab-ns','tab-obl','tab-cone','tab-pm','tab-atm','tab-traj','tab-stube'].forEach(id=>{
   const p=document.getElementById(id);
   p.addEventListener('input',recomputeActive); p.addEventListener('change',recomputeActive);
 });
@@ -1268,7 +1401,8 @@ document.getElementById('units').addEventListener('change',()=>{
     const si=(+el.value)/U.d[t][prevUnits][1]; el.value=+(si*U.d[t][next][1]).toPrecision(6);
     const span=el.parentNode.querySelector('.unit'); if(span)span.textContent=U.d[t][next][0]; };
   [['vel','vel'],['temp','temp'],['pres','pres'],['rn','len'],['tw','temp'],['alt','alt'],
-   ['atm-z','alt'],['tr-rn','len'],['tr-alt','alt']].forEach(conv);
+   ['atm-z','alt'],['tr-rn','len'],['tr-alt','alt'],
+   ['st-p4','pres'],['st-T4','temp'],['st-L4','lenm'],['st-p1','pres'],['st-T1','temp'],['st-L1','lenm']].forEach(conv);
   prevUnits=next; U.sys=next; updateAltReadout(); refreshTrajLabels(); recomputeActive();
 });
 // export
