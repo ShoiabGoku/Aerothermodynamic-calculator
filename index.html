@@ -95,6 +95,15 @@
   .note{font-size:12px;color:var(--muted);margin:4px 0 12px}
   svg.plot{width:100%;max-width:680px;height:auto;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
   svg.plot text{fill:var(--muted);font-family:var(--sans)}
+  details.eqwrap{border-color:var(--accent)}
+  details.eqwrap summary{color:var(--accent2);font-size:13.5px}
+  .eqdoc{font-size:13px;padding-top:4px}
+  .eqdoc h4{color:var(--accent2);margin:15px 0 5px;font-size:13px;border-bottom:1px solid var(--line);padding-bottom:3px}
+  .eqdoc h4:first-child{margin-top:4px}
+  .eqdoc p{margin:5px 0;color:var(--muted)}
+  .eqn{background:#0e1726;border:1px solid #24344c;border-left:3px solid var(--accent);border-radius:6px;
+       padding:7px 12px;margin:6px 0;font-family:"Cambria Math","Times New Roman",serif;font-size:14.5px;color:var(--txt);overflow-x:auto}
+  .eqn small{color:var(--muted);font-family:var(--sans);font-size:11.5px}
   @media print{
     .tabbar,.gbar,.controls,.btn,.foot,#velMode,#atmMode{display:none!important}
     body{background:#fff;color:#000}
@@ -364,14 +373,24 @@
   <h2>Shock tube / reflected-shock tunnel</h2>
   <div class="inrow">
     <div class="field"><label>Driver gas (high p)</label>
-      <select id="st-dg"><option value="he">Helium</option><option value="air">Air</option><option value="n2">Nitrogen</option><option value="h2">Hydrogen</option><option value="ar">Argon</option><option value="co2">CO₂</option></select></div>
+      <select id="st-dg">
+        <option value="he">Helium</option><option value="h2">Hydrogen (H₂)</option>
+        <option value="air">Air</option><option value="n2">Nitrogen (N₂)</option>
+        <option value="o2">Oxygen (O₂)</option><option value="ar">Argon</option>
+        <option value="co2">CO₂</option><option value="co">CO</option><option value="ne">Neon</option>
+      </select></div>
     <div class="field sm"><label>Driver p₄</label><div class="row"><input id="st-p4" type="number" value="2000000"><span class="unit">Pa</span></div></div>
     <div class="field sm"><label>Driver T₄</label><div class="row"><input id="st-T4" type="number" value="300"><span class="unit">K</span></div></div>
     <div class="field sm"><label>Driver length L₄</label><div class="row"><input id="st-L4" type="number" value="3"><span class="unit">m</span></div></div>
   </div>
   <div class="inrow">
     <div class="field"><label>Driven gas (low p, test gas)</label>
-      <select id="st-vg"><option value="air">Air</option><option value="n2">Nitrogen</option><option value="ar">Argon</option><option value="co2">CO₂</option><option value="he">Helium</option></select></div>
+      <select id="st-vg">
+        <option value="air">Air</option><option value="n2">Nitrogen (N₂)</option>
+        <option value="o2">Oxygen (O₂)</option><option value="co2">CO₂</option>
+        <option value="ar">Argon</option><option value="co">CO</option>
+        <option value="ne">Neon</option><option value="he">Helium</option><option value="h2">Hydrogen (H₂)</option>
+      </select></div>
     <div class="field sm"><label>Driven p₁</label><div class="row"><input id="st-p1" type="number" value="10000"><span class="unit">Pa</span></div></div>
     <div class="field sm"><label>Driven T₁</label><div class="row"><input id="st-T1" type="number" value="300"><span class="unit">K</span></div></div>
     <div class="field sm"><label>Driven length L₁</label><div class="row"><input id="st-L1" type="number" value="5"><span class="unit">m</span></div></div>
@@ -381,6 +400,59 @@
     <div class="field sm"><label>Snapshot time (× t to wall)</label><input id="st-tf" type="number" step="0.05" value="0.7"></div>
   </div>
   <div class="note">Ideal (perfect-gas) shock tube. Burst the diaphragm: an incident shock runs into the driven gas, a contact surface and an expansion fan form; the shock reflects off the closed end to make the high-enthalpy reservoir (region 5) that feeds the nozzle. Set the driver pressure high enough that p₄ &gt; p₁.</div>
+
+  <details class="eqwrap" id="st-eqdoc">
+    <summary>📘 Equations &amp; method used (click to expand) — full derivation chain</summary>
+    <div class="eqdoc">
+      <p><b>Stations.</b> 4 = driver (high-p), 1 = driven (low-p test gas); after the diaphragm bursts:
+      2 = behind the incident shock, 3 = expanded driver gas (2 &amp; 3 are separated by the contact surface,
+      with p₃ = p₂ and u₃ = u₂), 5 = gas processed by the reflected shock (the stagnant high-enthalpy reservoir).
+      γ₁,R₁ are the driven-gas properties; γ₄,R₄ the driver. All relations below are exactly what the calculator evaluates.</p>
+
+      <h4>1 · Gas state</h4>
+      <div class="eqn">a = √(γ R T) &nbsp;&nbsp;&nbsp; ρ = p / (R T) &nbsp;&nbsp;<small>speed of sound, density (each gas)</small></div>
+
+      <h4>2 · Diaphragm (shock-tube) equation → incident shock strength</h4>
+      <p>Given the diaphragm pressure ratio p₄/p₁, the incident-shock pressure ratio P ≡ p₂/p₁ is the root of:</p>
+      <div class="eqn">p₄/p₁ = P · [ 1 − (γ₄−1)(a₁/a₄)(P−1) ⁄ √( 2γ₁ ( 2γ₁ + (γ₁+1)(P−1) ) ) ] <sup>−2γ₄ ⁄ (γ₄−1)</sup></div>
+      <p>Solved numerically for P = p₂/p₁ (bisection). It encodes “shock compression in the driven gas = isentropic expansion in the driver, matched in p and u at the contact surface.”</p>
+
+      <h4>3 · Incident shock (driven gas, γ₁)</h4>
+      <div class="eqn">M<sub>s</sub> = √[ (γ₁+1)/(2γ₁) · (p₂/p₁ − 1) + 1 ] &nbsp;&nbsp;&nbsp; W<sub>s</sub> = M<sub>s</sub> a₁ &nbsp;&nbsp;<small>shock Mach &amp; lab-frame speed</small></div>
+      <div class="eqn">T₂/T₁ = [ 2γ₁M<sub>s</sub>² − (γ₁−1) ][ (γ₁−1)M<sub>s</sub>² + 2 ] ⁄ [ (γ₁+1)² M<sub>s</sub>² ]</div>
+      <div class="eqn">ρ₂/ρ₁ = (γ₁+1)M<sub>s</sub>² ⁄ [ (γ₁−1)M<sub>s</sub>² + 2 ] &nbsp;&nbsp;&nbsp; a₂ = a₁ √(T₂/T₁)</div>
+      <div class="eqn">u₂ = (2a₁)/(γ₁+1) · ( M<sub>s</sub> − 1/M<sub>s</sub> ) &nbsp;&nbsp;<small>induced (contact / mass) velocity</small></div>
+
+      <h4>4 · Contact surface &amp; expansion fan (driver gas, γ₄)</h4>
+      <div class="eqn">p₃ = p₂ , &nbsp; u₃ = u₂ &nbsp;&nbsp;<small>matched across the contact surface</small></div>
+      <div class="eqn">T₃/T₄ = (p₃/p₄)<sup>(γ₄−1)/γ₄</sup> &nbsp;&nbsp;&nbsp; a₃ = a₄ (p₃/p₄)<sup>(γ₄−1)/2γ₄</sup></div>
+      <div class="eqn">u₃ = (2a₄)/(γ₄−1) · [ 1 − (p₃/p₄)<sup>(γ₄−1)/2γ₄</sup> ] &nbsp;&nbsp;<small>(= u₂; this closes the diaphragm equation)</small></div>
+      <p>Centred-fan speeds (lab frame): head = −a₄, tail = u₃ − a₃. Inside the fan, with ξ = x/t:</p>
+      <div class="eqn">u(ξ) = 2/(γ₄+1) · (ξ + a₄) , &nbsp; a = a₄ − (γ₄−1)/2 · u , &nbsp; p = p₄ (a/a₄)<sup>2γ₄/(γ₄−1)</sup> , &nbsp; T = T₄ (a/a₄)²</div>
+
+      <h4>5 · Reflected shock → reservoir (region 5, u₅ = 0)</h4>
+      <p>The shock reflects off the closed end and brings the gas to rest. Requiring u₅ = 0 gives, in closed form,</p>
+      <div class="eqn">K = u₂ (γ₁+1) / (2a₂) , &nbsp; M<sub>r</sub> = ( K + √(K²+4) ) / 2 &nbsp;&nbsp;<small>reflected-shock Mach (rel. to gas 2)</small></div>
+      <div class="eqn">p₅/p₂ = 1 + 2γ₁/(γ₁+1) · (M<sub>r</sub>² − 1)</div>
+      <div class="eqn">T₅/T₂ = [ 2γ₁M<sub>r</sub>² − (γ₁−1) ][ (γ₁−1)M<sub>r</sub>² + 2 ] ⁄ [ (γ₁+1)² M<sub>r</sub>² ]</div>
+      <div class="eqn">ρ₅/ρ₂ = (γ₁+1)M<sub>r</sub>² ⁄ [ (γ₁−1)M<sub>r</sub>² + 2 ] &nbsp;&nbsp;&nbsp; W<sub>r</sub> = M<sub>r</sub> a₂ − u₂ &nbsp;<small>(reflected-shock speed)</small></div>
+
+      <h4>6 · Nozzle → test section (reservoir 5 ≈ stagnation, isentropic)</h4>
+      <div class="eqn">A<sub>e</sub>/A* → M<sub>e</sub> (supersonic root) , &nbsp; T<sub>e</sub> = T₅ ⁄ (1 + ½(γ₁−1)M<sub>e</sub>²) , &nbsp; p<sub>e</sub> = p₅ ⁄ (1 + ½(γ₁−1)M<sub>e</sub>²)<sup>γ₁/(γ₁−1)</sup></div>
+      <div class="eqn">V<sub>e</sub> = M<sub>e</sub> √(γ₁ R₁ T<sub>e</sub>) , &nbsp; ρ<sub>e</sub> = p<sub>e</sub>/(R₁ T<sub>e</sub>) , &nbsp; Re/m = ρ<sub>e</sub> V<sub>e</sub> / μ(T<sub>e</sub>)</div>
+
+      <h4>7 · x–t wave diagram (each wave is x = c·t)</h4>
+      <p>Incident shock c = W<sub>s</sub>; contact surface c = u₂; fan head c = −a₄, tail c = u₃−a₃ (a fan of rays in between);
+      reflected shock leaves the wall at (x=L₁, t=L₁/W<sub>s</sub>) with speed −W<sub>r</sub> until it meets the contact surface.</p>
+
+      <h4>Assumptions</h4>
+      <p>Ideal calorically-perfect gases (constant γ, R per gas); instantaneous diaphragm rupture; 1-D inviscid flow;
+      no boundary-layer attenuation of the shock; no real-gas / vibrational / dissociation effects in the hot reservoir
+      (for those, hand T₅,p₅ as a freestream into the Aerothermo tab). Refs: Anderson, <i>Modern Compressible Flow</i>;
+      Gaydon &amp; Hurle, <i>The Shock Tube in High-Temperature Chemical Physics</i>.</p>
+    </div>
+  </details>
+
   <div id="out-stube"></div>
  </div>
 </section>
@@ -1276,7 +1348,9 @@ function fsFrom(T,p,V){
 
 /* ---- SHOCK TUBE / REFLECTED-SHOCK TUNNEL ---- */
 const GASES={air:{g:1.4,R:287.05,n:'Air'},he:{g:1.667,R:2077,n:'Helium'},
-  n2:{g:1.4,R:296.8,n:'N₂'},ar:{g:1.667,R:208.1,n:'Argon'},co2:{g:1.289,R:188.9,n:'CO₂'},h2:{g:1.405,R:4124,n:'H₂'}};
+  n2:{g:1.4,R:296.8,n:'Nitrogen (N₂)'},o2:{g:1.395,R:259.8,n:'Oxygen (O₂)'},
+  ar:{g:1.667,R:208.1,n:'Argon'},co2:{g:1.289,R:188.9,n:'CO₂'},co:{g:1.4,R:296.8,n:'CO'},
+  ne:{g:1.667,R:412.0,n:'Neon'},h2:{g:1.405,R:4124,n:'Hydrogen (H₂)'}};
 function stube_p2p1(p4p1,g1,g4,a1,a4){            // solve shock-tube equation for p2/p1
   const f=x=>{ const s=2*g1*(2*g1+(g1+1)*(x-1)); if(s<=0)return 1e9;
     const term=1-(g4-1)*(a1/a4)*(x-1)/Math.sqrt(s); if(term<=0)return 1e9;
