@@ -15,7 +15,7 @@ perfect-gas relations with a high-temperature **real-gas / equilibrium-air** mod
 | **Oblique shock** | Wedge / compression ramp. Input deflection θ **or** wave angle β; weak & strong solutions; θ–β–M plot; attached/detached check. **Perfect gas *or* real-gas / 5-species equilibrium air.** |
 | **Cone (Taylor–Maccoll)** | Sharp cone at zero incidence — shock angle, surface Mach, surface Cₚ, by integrating the Taylor–Maccoll ODE. |
 | **Prandtl–Meyer** | Expansion fan: M₂, ν, μ, and p/T/ρ ratios through a given turn. |
-| **Aerothermo (real gas)** | The hypersonic module: freestream → bow shock → surface, solved in parallel for **ideal · thermally-perfect · 3/4/5-species equilibrium air** — stagnation T₀/p₀, post-shock state, shock stand-off, surface p/T vs wall angle, stagnation heat flux (Fay–Riddell & Sutton–Graves). Includes a **nonequilibrium post-shock relaxation** card: finite-rate Park R1–R5 chemistry (single T, third-body efficiencies, equilibrium-constant backward rates) integrated behind a chemically-frozen shock — T(x) and Yᵢ(x) profiles plus 95% relaxation lengths, directly comparable to a Laminar Finite-Rate Fluent stagnation line. |
+| **Aerothermo (real gas)** | The hypersonic module: freestream → bow shock → surface, solved in parallel for **ideal · thermally-perfect · 3/4/5-species equilibrium air** — stagnation T₀/p₀, post-shock state, shock stand-off, surface p/T vs wall angle, stagnation heat flux (Fay–Riddell & Sutton–Graves). Includes a **nonequilibrium post-shock relaxation** card: finite-rate Park R1–R5 chemistry (single T, third-body efficiencies, equilibrium-constant backward rates) integrated behind a chemically-frozen shock — T(x) and Yᵢ(x) profiles plus 95% relaxation lengths, directly comparable to a Laminar Finite-Rate Fluent stagnation line — **and the Park two-temperature (T–Tᵥ) model**: vibrationally-frozen jump, Landau–Teller relaxation with Millikan–White + Park-correction times, dissociation at Tₐ=√(T·Tᵥ), overlaid as dashed T and Tᵥ profiles. |
 | **Atmosphere** | US Standard Atmosphere 1976 (to 86 km): T, p, ρ, speed of sound, viscosity. |
 | **Trajectory sweep** | Sweep velocity, Mach, or altitude and **plot** stagnation T₀, heat flux and shock stand-off — e.g. along a re-entry trajectory. |
 
@@ -42,6 +42,7 @@ The physics core is re-derived independently in Python and checked against textb
 
 - `verify3.py` — shock tube (Ms=2 → T₅/T₁=2.500 exactly; He driver → T₅ ≈ 4863 K).
 - `verify4.py` — nonequilibrium relaxation (finite-rate integration relaxes from the frozen shock state exactly onto the independently-computed equilibrium state; O₂-only relaxes in ~2 mm vs ~17 mm for 5-species at the reference condition).
+- `verify5.py` — two-temperature Park model (vibrationally-frozen jump reproduces the calorically-perfect T₂ ≈ 12.3 kK with Tᵥ = T∞; T and Tᵥ merge in ~1 mm; end state lands on the 1-T equilibrium).
 
 ```
 python verify.py
