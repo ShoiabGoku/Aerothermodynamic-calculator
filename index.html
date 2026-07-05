@@ -988,6 +988,9 @@ function render(inp,fs,R){
     }
   }
 
+  /* ---------- nonequilibrium relaxation (finite-rate Park) ---------- */
+  try{ html+=noneqCard(fs,order); }catch(e){ console.error('noneq:',e); }
+
   /* ---------- assumptions ---------- */
   html+=assumptionsHTML();
   el.innerHTML=html;
@@ -1003,6 +1006,7 @@ function assumptionsHTML(){return `
       <li><b>Stand-off:</b> Billig (1967) empirical (ideal, Mach-based) and the density-ratio thin-shock-layer relation Δ/Rₙ = ε/(1+√(2ε)), ε=ρ∞/ρ₂ (real-gas-sensitive). They bracket reality — real gas thins the layer because ρ₂/ρ∞ rises.</li>
       <li><b>Heat flux:</b> Fay–Riddell (Le=1.4, Pr=0.71, Newtonian velocity gradient β=(1/Rₙ)√(2(p₀−p∞)/ρ₀)) and Sutton–Graves engineering correlation. Both in MW/m². Sutton–Graves is composition-independent (same for all models) and is the quick sanity check.</li>
       <li><b>Surface:</b> modified Newtonian Cp = Cp,max·cos²θ; local static T by isentropic expansion from stagnation.</li>
+      <li><b>Nonequilibrium relaxation:</b> the finite-rate card integrates the Park R1–R5 mechanism (single T, backward rates from the equilibrium constant) behind a chemically-frozen shock along the post-shock streamline — the analytical counterpart of a Laminar Finite-Rate Fluent stagnation line. Frozen and equilibrium states bound the CFD; the relaxation length shows whether your shock layer is near-frozen, relaxing, or near-equilibrium (compare L₉₅ to the stand-off Δ).</li>
       <li><b>Validity range:</b> works subsonic→hypersonic. For M&lt;1 only isentropic stagnation is shown (no shock). Viscosity is Sutherland (under-predicts μ above ~2000 K). Single translational temperature (no T–T_v two-temperature nonequilibrium — that needs CFD/UDF).</li>
       <li><b>Cross-check targets (M≈15, 50 km thesis case):</b> Sutton–Graves ≈ 4.4 MW/m²; stand-off vs Lobb; T₀ ideal ≈ 12 kK collapsing to ≈ 6 kK with chemistry.</li>
     </ul>
@@ -1450,6 +1454,129 @@ function stubeSnapshot(S,g4){
   return `<div style="display:flex;flex-wrap:wrap;gap:10px">`
     +svgPlot([{x:xs,y:pp,color:'#ff7849'}],{xlabel:'x (m)',ylabel:'p / p₁',ymin:0})
     +svgPlot([{x:xs,y:tt,color:'#7bdff2'}],{xlabel:'x (m)',ylabel:'T / T₁',ymin:0})+`</div>`;
+}
+
+/* ---- NONEQUILIBRIUM POST-SHOCK RELAXATION (finite-rate Park, single T) ----
+   Same R1-R5 mechanism as a Fluent Laminar Finite-Rate setup: frozen shock
+   jump, then 1-D steady conservation (rho*u, p+rho*u^2, h+u^2/2 constant)
+   with dY_i/dx = w_i*M_i/(rho*u). Verified against the equilibrium limit
+   (verify4.py: relaxed T lands on the equilibrium shock solution). */
+const SPL=['O2','N2','NO','O','N'];
+const PARK=[
+  {A:2.0e15,b:-1.5,E:4.95e5,typ:'dO2'},   // O2+M=2O+M   (A m3/mol/s, E J/mol)
+  {A:7.0e15,b:-1.6,E:9.41e5,typ:'dN2'},   // N2+M=2N+M
+  {A:5.0e9 ,b: 0.0,E:6.28e5,typ:'dNO'},   // NO+M=N+O+M
+  {A:6.4e11,b:-1.0,E:3.19e5,typ:'xN2O'},  // N2+O=NO+N
+  {A:8.4e6 ,b: 0.0,E:1.62e5,typ:'xNOO'}]; // NO+O=O2+N
+function mixH(Y,T){ let h=0; for(const s of SPL) if(Y[s]>0) h+=Y[s]*hSpecies(s,T)/SP[s].M; return h; }
+function mixMbar(Y){ let inv=0; for(const s of SPL) inv+=Y[s]/SP[s].M; return 1/inv; }
+function solveT_Y(Y,htarget){ let lo=200,hi=30000;
+  for(let i=0;i<64;i++){ const m=0.5*(lo+hi); if(mixH(Y,m)>htarget)hi=m; else lo=m; } return 0.5*(lo+hi); }
+function parkRates(Y,rho,T,mode){
+  const c={}; for(const s of SPL) c[s]=rho*Y[s]/SP[s].M;          // mol/m3
+  const w={O2:0,N2:0,NO:0,O:0,N:0};
+  const act={s3:[0],s4:[0,1],s5:[0,1,2,3,4]}[mode];
+  const M3=(eff)=>{ let m=0; for(const s of SPL) m+=(eff[s]||1)*c[s]; return m; };
+  for(const i of act){
+    const r=PARK[i], kf=r.A*Math.pow(T,r.b)*Math.exp(-r.E/(Ru*T));
+    let q;
+    if(r.typ==='dO2'){ const kb=kf/(Kp_O2(T)/(Ru*T)), m3=M3({O:5,N:5});
+      q=(kf*c.O2-kb*c.O*c.O)*m3; w.O2-=q; w.O+=2*q; }
+    else if(r.typ==='dN2'){ const kb=kf/(Kp_N2(T)/(Ru*T)), m3=M3({O:4.3,N:4.3});
+      q=(kf*c.N2-kb*c.N*c.N)*m3; w.N2-=q; w.N+=2*q; }
+    else if(r.typ==='dNO'){ const kb=kf/(Kp_NO(T)/(Ru*T)), m3=M3({NO:22,O:22,N:22});
+      q=(kf*c.NO-kb*c.N*c.O)*m3; w.NO-=q; w.N+=q; w.O+=q; }
+    else if(r.typ==='xN2O'){ const kb=kf/(Kp_N2(T)/Kp_NO(T));
+      q=kf*c.N2*c.O-kb*c.NO*c.N; w.N2-=q; w.O-=q; w.NO+=q; w.N+=q; }
+    else { const kb=kf/(Kp_NO(T)/Kp_O2(T));
+      q=kf*c.NO*c.O-kb*c.O2*c.N; w.NO-=q; w.O-=q; w.O2+=q; w.N+=q; }
+  }
+  return w;
+}
+function relaxNoneq(fs,mode){
+  const sh=shockReacting(fs.p,fs.T,fs.rho,fs.h1,fs.V,'real');  // frozen jump
+  const Tf=sh.T2;
+  if(Tf<2200) return {skip:true,Tf};
+  let Y={O2:0.233,N2:0.767,NO:0,O:0,N:0};
+  const mflux=fs.rho*fs.V, Pmom=fs.p+fs.rho*fs.V*fs.V, Htot=fs.h1+0.5*fs.V*fs.V;
+  let rho=sh.rho2,u=sh.u2,T=Tf,p=sh.p2,x=0;
+  const hist={x:[0],T:[Tf],Y:[{...Y}]}; let dx=1e-7;
+  const stateFromY=(Yc,rg)=>{ let r=rg;
+    for(let i=0;i<50;i++){ const uu=mflux/r, pp=Pmom-mflux*uu, hh=Htot-0.5*uu*uu;
+      const TT=solveT_Y(Yc,hh), rn=pp*mixMbar(Yc)/(Ru*TT);
+      if(Math.abs(rn-r)<1e-9*r){ r=rn; break; } r=0.5*(r+rn); }
+    const uu=mflux/r, pp=Pmom-mflux*uu;
+    return [solveT_Y(Yc,Htot-0.5*uu*uu),pp,r,uu]; };
+  const xmax=0.5;
+  for(let step=0; step<2600 && x<xmax; step++){
+    const w=parkRates(Y,rho,T,mode);
+    const dY={}; let mx=0;
+    for(const s of SPL){ dY[s]=w[s]*SP[s].M/(rho*u); mx=Math.max(mx,Math.abs(dY[s])); }
+    dx = mx>0 ? Math.min(Math.max(3e-4/mx,1e-9), xmax/40, dx*2) : xmax/40;
+    let sum=0; const Y2={};
+    for(const s of SPL){ Y2[s]=Math.max(0,Y[s]+dx*dY[s]); sum+=Y2[s]; }
+    for(const s of SPL) Y2[s]/=sum;
+    const st=stateFromY(Y2,rho); T=st[0]; p=st[1]; rho=st[2]; u=st[3]; Y=Y2; x+=dx;
+    if(hist.x.length<2400){ hist.x.push(x); hist.T.push(T); hist.Y.push({...Y}); }
+    const n=hist.x.length;
+    if(x>1e-4 && n>3 && Math.abs(hist.T[n-1]-hist.T[n-2])/Math.max(hist.x[n-1]-hist.x[n-2],1e-12)<1.0) break;
+  }
+  const Te=T, drop=Tf-Te; let x95=null;
+  for(let i=0;i<hist.x.length;i++){ if(Tf-hist.T[i]>=0.95*drop){ x95=hist.x[i]; break; } }
+  return {Tf,Te,x95,x,hist,Yend:Y,p2:p};
+}
+function noneqCard(fs,order){
+  const chem=order.filter(m=>['s3','s4','s5'].includes(m));
+  if(!chem.length||!fs.supersonic) return '';
+  const res={}; for(const m of chem){ try{ res[m]=relaxNoneq(fs,m); }catch(e){ res[m]={err:String(e)}; } }
+  const any=chem.find(m=>res[m]&&!res[m].skip&&!res[m].err);
+  if(!any){ return `<div class="card"><h3>Nonequilibrium relaxation (finite-rate Park)</h3>
+    <p class="muted small">Frozen post-shock temperature is below ≈2200 K — chemistry is effectively frozen at this condition, so there is no relaxation zone to compute.</p></div>`; }
+  let rows='';
+  for(const m of chem){ const r=res[m]; if(!r||r.skip||r.err) continue;
+    rows+=`<tr><td><span style="color:${MODELS[m].c}">${MODELS[m].n}</span></td>
+      <td class="num">${fmt(r.Tf,0)}</td><td class="num">${fmt(r.Te,0)}</td>
+      <td class="num">${r.x95!=null?fmt(r.x95*1000,2):'—'}</td>
+      <td class="num">${fmt(r.Yend.O,3)}</td><td class="num">${fmt(r.Yend.N,4)}</td><td class="num">${fmt(r.Yend.NO,4)}</td></tr>`; }
+  const tbl=`<div class="tablewrap"><table><thead><tr><th>Model</th><th>Frozen T₂ (K)</th><th>Relaxed T (K)</th>
+    <th>95% relax length (mm)</th><th>Y(O)</th><th>Y(N)</th><th>Y(NO)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  let xplot=0;
+  for(const m of chem){ const r=res[m]; if(!r||r.skip||r.err) continue;
+    xplot=Math.max(xplot,(r.x95||r.x)*4); }
+  xplot=Math.min(Math.max(xplot,0.004),0.5);
+  const series=[];
+  for(const m of chem){ const r=res[m]; if(!r||r.skip||r.err) continue;
+    const xs=[],ys=[]; for(let i=0;i<r.hist.x.length;i++){ if(r.hist.x[i]<=xplot){ xs.push(r.hist.x[i]*1000); ys.push(r.hist.T[i]); } }
+    series.push({x:xs,y:ys,color:MODELS[m].c,label:MODELS[m].n}); }
+  const Tplot=svgPlot(series,{xlabel:'distance behind shock x (mm)',ylabel:'T (K)'});
+  const top=chem.includes('s5')?'s5':(chem.includes('s4')?'s4':'s3'); const rt=res[top];
+  let Splot='';
+  if(rt&&!rt.skip&&!rt.err){
+    const cols={O2:'#7bdff2',N2:'#9aa7bd',NO:'#ffd166',O:'#43d9a3',N:'#ff5d73'};
+    const ss=[]; for(const s of SPL){ const xs=[],ys=[];
+      for(let i=0;i<rt.hist.x.length;i++){ if(rt.hist.x[i]<=xplot){ xs.push(rt.hist.x[i]*1000); ys.push(rt.hist.Y[i][s]); } }
+      ss.push({x:xs,y:ys,color:cols[s],label:s}); }
+    Splot=svgPlot(ss,{xlabel:'distance behind shock x (mm)',ylabel:'mass fraction Y ('+MODELS[top].n+')',ymin:0});
+  }
+  return `<div class="card"><h3>Nonequilibrium post-shock relaxation
+      <span class="muted small">(finite-rate Park chemistry, single T — Fluent-comparable)</span></h3>
+    <p class="muted small">The gas crosses the shock <b>chemically frozen</b> (vibrationally-active thermally-perfect jump), then reacts at
+    finite rate along the post-shock streamline: 1-D steady conservation (ρu, p+ρu², h₀ constant) with
+    dY<sub>i</sub>/dx = ẇ<sub>i</sub>M<sub>i</sub>/(ρu), using the same Park R1–R5 rates (third-body efficiencies, backward rates
+    from the equilibrium constant) as a Laminar Finite-Rate Fluent setup. The frozen and relaxed values bound your CFD; the
+    profiles below are what a converged stagnation-line solution should approach.</p>
+    ${tbl}${Tplot}${Splot}
+    <details style="margin-top:8px"><summary>Park mechanism used (k<sub>f</sub> = A·T<sup>β</sup>·e<sup>−E/R<sub>u</sub>T</sup>)</summary>
+      <div class="small muted" style="padding:6px 2px">
+      R1: O₂+M ⇌ 2O+M — A=2.0×10¹⁸, β=−1.5, E=4.95×10⁸ J/kmol (M: O,N ×5)<br>
+      R2: N₂+M ⇌ 2N+M — A=7.0×10¹⁸, β=−1.6, E=9.41×10⁸ J/kmol (M: O,N ×4.3)<br>
+      R3: NO+M ⇌ N+O+M — A=5.0×10¹², β=0, E=6.28×10⁸ J/kmol (M: N,O,NO ×22)<br>
+      R4: N₂+O ⇌ NO+N — A=6.4×10¹⁴, β=−1, E=3.19×10⁸ J/kmol<br>
+      R5: NO+O ⇌ O₂+N — A=8.4×10⁹, β=0, E=1.62×10⁸ J/kmol<br>
+      A in m³·kmol⁻¹·s⁻¹. Backward rates k_b = k_f/K_c with K_c from the same statistical-thermodynamic Kp(T) as the equilibrium
+      solver, so the relaxed state lands exactly on the equilibrium solution. Single translational temperature — no T–T_v
+      two-temperature model — matching a standard Fluent Laminar Finite-Rate setup.</div></details>
+  </div>`;
 }
 
 /* ---- tab switching + wiring ---- */

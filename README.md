@@ -15,7 +15,7 @@ perfect-gas relations with a high-temperature **real-gas / equilibrium-air** mod
 | **Oblique shock** | Wedge / compression ramp. Input deflection θ **or** wave angle β; weak & strong solutions; θ–β–M plot; attached/detached check. **Perfect gas *or* real-gas / 5-species equilibrium air.** |
 | **Cone (Taylor–Maccoll)** | Sharp cone at zero incidence — shock angle, surface Mach, surface Cₚ, by integrating the Taylor–Maccoll ODE. |
 | **Prandtl–Meyer** | Expansion fan: M₂, ν, μ, and p/T/ρ ratios through a given turn. |
-| **Aerothermo (real gas)** | The hypersonic module: freestream → bow shock → surface, solved in parallel for **ideal · thermally-perfect · 3/4/5-species equilibrium air** — stagnation T₀/p₀, post-shock state, shock stand-off, surface p/T vs wall angle, stagnation heat flux (Fay–Riddell & Sutton–Graves). |
+| **Aerothermo (real gas)** | The hypersonic module: freestream → bow shock → surface, solved in parallel for **ideal · thermally-perfect · 3/4/5-species equilibrium air** — stagnation T₀/p₀, post-shock state, shock stand-off, surface p/T vs wall angle, stagnation heat flux (Fay–Riddell & Sutton–Graves). Includes a **nonequilibrium post-shock relaxation** card: finite-rate Park R1–R5 chemistry (single T, third-body efficiencies, equilibrium-constant backward rates) integrated behind a chemically-frozen shock — T(x) and Yᵢ(x) profiles plus 95% relaxation lengths, directly comparable to a Laminar Finite-Rate Fluent stagnation line. |
 | **Atmosphere** | US Standard Atmosphere 1976 (to 86 km): T, p, ρ, speed of sound, viscosity. |
 | **Trajectory sweep** | Sweep velocity, Mach, or altitude and **plot** stagnation T₀, heat flux and shock stand-off — e.g. along a re-entry trajectory. |
 
@@ -40,14 +40,19 @@ The physics core is re-derived independently in Python and checked against textb
 - `verify.py` — equilibrium-air aerothermo (Sutton–Graves ≈ 4.4 MW/m²; ideal T₀ ≈ 12.7 kK → 5.4 kK with full chemistry; element conservation N/O = 3.762).
 - `verify2.py` — perfect-gas tools (isentropic M=2: p₀/p=7.824, A/A*=1.6875, ν=26.38°; oblique M=3/θ=20° → β=37.76°/M₂=1.99; cone M=3/σ=15° → β=25.3°; all matching NACA 1135 / Anderson).
 
+- `verify3.py` — shock tube (Ms=2 → T₅/T₁=2.500 exactly; He driver → T₅ ≈ 4863 K).
+- `verify4.py` — nonequilibrium relaxation (finite-rate integration relaxes from the frozen shock state exactly onto the independently-computed equilibrium state; O₂-only relaxes in ~2 mm vs ~17 mm for 5-species at the reference condition).
+
 ```
 python verify.py
 python verify2.py
+python verify3.py
+python verify4.py
 ```
 
 ## Scope / limitations
 - Perfect-gas tools assume a calorically perfect gas (single γ).
-- The real-gas / equilibrium module uses a single translational temperature (no two-temperature thermal nonequilibrium, no finite-rate kinetics) and neutral 5-species air (no ionization). It is the equilibrium **bounding** counterpart to nonequilibrium CFD, not a replacement.
+- The real-gas module uses a single translational temperature (no two-temperature T–Tᵥ thermal nonequilibrium) and neutral 5-species air (no ionization). The equilibrium solution and the finite-rate relaxation card together bound and profile what a single-temperature nonequilibrium CFD (e.g. Fluent Laminar Finite-Rate with the Park mechanism) should produce — they are a verification aid, not a CFD replacement.
 - Sutherland viscosity under-predicts μ above ~2000 K.
 
 For verification and education — not a substitute for converged CFD.
