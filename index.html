@@ -1749,6 +1749,16 @@ function noneqCard(fs,order){
     dY<sub>i</sub>/dx = ẇ<sub>i</sub>M<sub>i</sub>/(ρu), using the same Park R1–R5 rates (third-body efficiencies, backward rates
     from the equilibrium constant) as a Laminar Finite-Rate Fluent setup. The frozen and relaxed values bound your CFD; the
     profiles below are what a converged stagnation-line solution should approach.</p>
+    <details class="about"><summary>ℹ️ About the finite-rate (1-T) model — what · how · where</summary>
+      <p><b>What it is —</b> Chemical <i>non</i>equilibrium. Real gas needs time (and collisions) to dissociate, so just behind the shock it is still nearly frozen and only reaches the equilibrium composition further downstream. One temperature is assumed (translation, rotation and vibration all share T).</p>
+      <p><b>How it's used here —</b> Starting from the chemically-frozen shock state, the Park R1–R5 reactions are integrated along the streamline (dY<sub>i</sub>/dx = ẇ<sub>i</sub>M<sub>i</sub>/ρu) with backward rates from the equilibrium constant — so T falls and species build up smoothly from frozen toward equilibrium.</p>
+      <p><b>Where it's used —</b> This is exactly what an ANSYS Fluent <b>Laminar Finite-Rate</b> (single-temperature) species-transport run computes along the stagnation line — use these T(x) and Y<sub>i</sub>(x) curves to verify your CFD, and compare the 95% relaxation length to your shock stand-off to judge whether the layer is frozen, relaxing or near-equilibrium.</p>
+    </details>
+    <details class="about"><summary>ℹ️ About the two-temperature (Park T–T<sub>v</sub>) model — what · how · where</summary>
+      <p><b>What it is —</b> Thermal <i>non</i>equilibrium: right behind a strong shock, translation/rotation heat up instantly but the vibrational mode lags, so the gas has two temperatures — translational T and vibrational T<sub>v</sub> — until collisions equilibrate them. This raises the true peak T above the single-temperature value.</p>
+      <p><b>How it's used here —</b> The shock jump is taken vibrationally frozen (T₂ = the calorically-perfect value, T<sub>v</sub> = T∞), then T<sub>v</sub> relaxes by Landau–Teller with Millikan–White + Park times, and dissociation is throttled by Park's coupling temperature T<sub>a</sub> = √(T·T<sub>v</sub>). Shown as the dashed T and T<sub>v</sub> curves.</p>
+      <p><b>Where it's used —</b> High-enthalpy re-entry and shock-tunnel flows where vibration–dissociation coupling matters; it corresponds to a Park <b>two-temperature</b> CFD model — in Fluent that needs the 2-T add-on / a UDF, not the stock panel. Use it to see how much the single-temperature assumption under-predicts the peak shock-layer temperature.</p>
+    </details>
     ${tbl}${Tplot}${Splot}
     <details style="margin-top:8px"><summary>Park mechanism used (k<sub>f</sub> = A·T<sup>β</sup>·e<sup>−E/R<sub>u</sub>T</sup>)</summary>
       <div class="small muted" style="padding:6px 2px">
