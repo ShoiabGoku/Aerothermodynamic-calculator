@@ -4,6 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Aerothermodynamics Calculator — Freestream to Surface (Ideal · Real · 3/4/5-Species Air)</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0e17">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
   :root{
     --bg:#0a0e17; --panel:#121826; --panel2:#0e1420; --line:#223049;
@@ -144,6 +150,7 @@
   <label title="Unit system for dimensional quantities (Aerothermo, Atmosphere, Trajectory)">Units
     <select id="units"><option value="SI">SI</option><option value="US">US / Imperial</option></select></label>
   <span class="spacer"></span>
+  <button class="xbtn" id="btnInstall" style="display:none;border-color:var(--good);color:var(--good)" title="Install this calculator as an app — desktop icon, own window, works offline">⬇ Install app</button>
   <button class="xbtn" id="btnCsv" title="Download the current results table as CSV">⤓ CSV</button>
   <button class="xbtn" id="btnPrint" title="Print or save the current tab as PDF">🖨 Print / PDF</button>
 </div>
@@ -1821,6 +1828,24 @@ document.getElementById('btnPrint').addEventListener('click',()=>window.print())
 // oblique gas/given listeners already covered by panel 'change'; init labels
 refreshTrajLabels();
 showTab('isen');   // default landing tab
+
+/* ---- PWA: offline service worker + install button ---- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e)); });
+}
+let deferredInstall=null;
+const installBtn=document.getElementById('btnInstall');
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredInstall=e; installBtn.style.display='';
+});
+installBtn.addEventListener('click',async()=>{
+  if(!deferredInstall) return;
+  deferredInstall.prompt();
+  const choice=await deferredInstall.userChoice;
+  if(choice.outcome==='accepted'){ installBtn.style.display='none'; }
+  deferredInstall=null;
+});
+window.addEventListener('appinstalled',()=>{ installBtn.style.display='none'; deferredInstall=null; });
 </script>
 </body>
 </html>
