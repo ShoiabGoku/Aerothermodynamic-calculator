@@ -26,7 +26,15 @@
   header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.2px}
   header p{margin:5px 0 0;color:var(--muted);font-size:13px;max-width:980px}
   .wrap{display:grid;grid-template-columns:340px 1fr;gap:0;align-items:start}
-  @media(max-width:1000px){.wrap{grid-template-columns:1fr}}
+  @media(max-width:1000px){
+    .wrap{grid-template-columns:1fr}
+    /* on narrow screens the controls must be a normal block, not a sticky
+       full-viewport scroll box that traps the results underneath it
+       (.wrap .controls: outranks the later base .controls rule) */
+    .wrap .controls{position:static;max-height:none;overflow:visible;border-right:0;border-bottom:2px solid var(--accent)}
+    .wrap .results{padding:14px 12px}
+    .tool{padding:14px 12px}
+  }
   .controls{padding:18px 20px;border-right:1px solid var(--line);position:sticky;top:0;max-height:100vh;overflow:auto}
   .results{padding:18px 22px;min-width:0}
   h2{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent2);margin:18px 0 8px;font-weight:700}
@@ -1099,7 +1107,11 @@ function updateAltReadout(){
   document.getElementById('altReadout').textContent=`→ T∞=${a.T.toFixed(1)} K, p∞=${a.p.toFixed(2)} Pa, ρ∞=${(a.p/(R_air*a.T)).toExponential(2)} kg/m³`;
 }
 document.getElementById('alt').addEventListener('input',updateAltReadout);
-document.getElementById('run').addEventListener('click',computeAll);
+document.getElementById('run').addEventListener('click',()=>{
+  computeAll();
+  // phones: controls stack above the results, so jump to them after computing
+  if(window.innerWidth<1000) setTimeout(()=>document.getElementById('out').scrollIntoView(),50);
+});
 document.addEventListener('keydown',e=>{ if(e.key==="Enter") computeAll(); });
 // initial visibility: default atmosphere mode is "altitude" -> hide manual T,p
 document.getElementById('tField').style.display='none';
