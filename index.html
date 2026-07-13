@@ -390,13 +390,20 @@
  <div class="tool">
   <h2>US Standard Atmosphere 1976</h2>
   <div class="inrow">
+    <div class="field"><label>Solve from</label>
+      <select id="atm-mode">
+        <option value="alt">Altitude → T, p, ρ, a</option>
+        <option value="pres">Pressure → altitude</option>
+        <option value="temp">Temperature → altitude</option>
+        <option value="dens">Density → altitude</option>
+      </select></div>
     <div class="field sm"><label id="atm-zlab">Geometric altitude (km)</label><input id="atm-z" type="number" step="1" value="30"></div>
   </div>
-  <div class="note">Valid to 86 km geometric. Returns T, p, ρ, speed of sound and viscosity.</div>
+  <div class="note">Valid to 86 km geometric. Go either way: altitude → properties, or enter a pressure / density / temperature to recover the altitude.</div>
   <details class="about"><summary>ℹ️ About this model — what it is · how it's used · where</summary>
     <p><b>What it is —</b> The US Standard Atmosphere 1976 is an internationally-agreed, idealized model of how the still, average atmosphere's temperature and pressure vary with altitude, built as a stack of layers with constant temperature lapse rates.</p>
-    <p><b>How it's used here —</b> Geometric altitude is converted to geopotential altitude, then each layer's barometric formula gives T and p; density, speed of sound and Sutherland viscosity follow.</p>
-    <p><b>Where it's used —</b> Defining the freestream (T∞, p∞, ρ∞) for flight at a given altitude, re-entry/ascent trajectory analysis, calibrating altimeters, and standardizing aircraft and engine performance data so results are comparable.</p>
+    <p><b>How it's used here —</b> Geometric altitude is converted to geopotential altitude, then each layer's barometric formula gives T and p; density, speed of sound and Sutherland viscosity follow. It also runs <b>in reverse</b>: pressure and density fall monotonically with height, so either gives a single altitude (how a pressure altimeter works); temperature is not monotonic, so a given T can match several altitudes and whole isothermal layers — all matches are listed.</p>
+    <p><b>Where it's used —</b> Defining the freestream (T∞, p∞, ρ∞) for flight at a given altitude, converting a measured pressure/density back to an altitude, re-entry/ascent trajectory analysis, calibrating altimeters, and standardizing aircraft and engine performance data so results are comparable.</p>
   </details>
   <div id="out-atm"></div>
  </div>
@@ -1377,18 +1384,67 @@ function computePM(){
       row('Density ratio ρ₂/ρ₁',fmt(r.r2r1,4))]))
     +`<div class="note">γ = ${g}. Flow accelerates (M↑) and p, T, ρ drop through the expansion fan; total conditions are unchanged.</div>`;
 }
-function computeAtm(){
-  const z=U.from('alt',+document.getElementById('atm-z').value), out=document.getElementById('out-atm');
+function atmAt(z){   // full property table at geometric altitude z (km)
   const a=atmosphere(z), rho=a.p/(R_air*a.T), c=Math.sqrt(1.4*R_air*a.T), mu=muSutherland(a.T);
-  document.getElementById('atm-zlab').textContent='Geometric altitude ('+U.lab('alt')+')';
-  out.innerHTML=card(`Atmosphere at ${fmt(U.to('alt',z),2)} ${U.lab('alt')}`,
-    ftable([row('Temperature T',fmt(U.to('temp',a.T),2),U.lab('temp')),
-      row('Pressure p',fmt(U.to('pres',a.p),4),U.lab('pres')),
-      row('Density ρ',fmt(U.to('rho',rho),5),U.lab('rho')),
-      row('Speed of sound a',fmt(U.to('vel',c),2),U.lab('vel')),
-      row('Dynamic viscosity μ',fmt(mu,4),'Pa·s'),
-      row('Pressure ratio p/p_SL',fmt(a.p/101325,5)),row('Density ratio ρ/ρ_SL',fmt(rho/1.225,5))]))
-    +`<div class="note">US Standard Atmosphere 1976 (valid to 86 km). Speed of sound and viscosity assume air, γ=1.4.</div>`;
+  return ftable([row('Geometric altitude',fmt(U.to('alt',z),3),U.lab('alt')),
+    row('Temperature T',fmt(U.to('temp',a.T),2),U.lab('temp')),
+    row('Pressure p',fmt(U.to('pres',a.p),4),U.lab('pres')),
+    row('Density ρ',fmt(U.to('rho',rho),5),U.lab('rho')),
+    row('Speed of sound a',fmt(U.to('vel',c),2),U.lab('vel')),
+    row('Dynamic viscosity μ',fmt(mu,4),'Pa·s'),
+    row('Pressure ratio p/p_SL',fmt(a.p/101325,5)),row('Density ratio ρ/ρ_SL',fmt(rho/1.225,5))]);
+}
+function atmInvertMono(target,which){   // 'p' or 'rho' — monotonic decreasing → unique z
+  const prop=z=>{ const a=atmosphere(z); return which==='p'?a.p:a.p/(R_air*a.T); };
+  if(target>prop(0)||target<prop(86)) return null;
+  let lo=0,hi=86;
+  for(let i=0;i<100;i++){ const m=0.5*(lo+hi); if(prop(m)>target) lo=m; else hi=m; }
+  return 0.5*(lo+hi);
+}
+function atmInvertT(Ttar){   // temperature is non-monotonic → 0..n crossings + isothermal bands
+  const sols=[], plateaus=[]; let prevT=atmosphere(0).T, pz=0, band=null;
+  for(let z=0; z<=86.0001; z+=0.02){ const T=atmosphere(z).T;
+    if(z>0 && (prevT-Ttar)*(T-Ttar)<0) sols.push(pz+(Ttar-prevT)/(T-prevT)*(z-pz));
+    if(Math.abs(T-Ttar)<0.06){ if(!band) band=[z,z]; else band[1]=z; }
+    else { if(band && band[1]-band[0]>0.3) plateaus.push(band); band=null; }
+    prevT=T; pz=z;
+  }
+  if(band && band[1]-band[0]>0.3) plateaus.push(band);
+  return {sols,plateaus};
+}
+function computeAtm(){
+  const mode=document.getElementById('atm-mode').value, out=document.getElementById('out-atm');
+  const raw=+document.getElementById('atm-z').value;
+  const labs={alt:'Geometric altitude ('+U.lab('alt')+')',pres:'Pressure ('+U.lab('pres')+')',
+    temp:'Temperature ('+U.lab('temp')+')',dens:'Density ('+U.lab('rho')+')'};
+  document.getElementById('atm-zlab').textContent=labs[mode];
+  if(mode==='alt'){
+    const z=U.from('alt',raw);
+    out.innerHTML=card(`Atmosphere at ${fmt(U.to('alt',z),2)} ${U.lab('alt')}`,atmAt(z))
+      +`<div class="note">US Standard Atmosphere 1976 (valid to 86 km). Speed of sound and viscosity assume air, γ=1.4.</div>`;
+    return;
+  }
+  if(mode==='pres'||mode==='dens'){
+    const which=mode==='pres'?'p':'rho';
+    const target=mode==='pres'?U.from('pres',raw):U.from('rho',raw);
+    const z=atmInvertMono(target,which);
+    if(z==null){ out.innerHTML=`<div class="warnbox">That ${mode==='pres'?'pressure':'density'} is outside the model's 0–86 km range.</div>`; return; }
+    out.innerHTML=card(`Altitude for ${mode==='pres'?'p':'ρ'} = ${fmt(raw,4)} ${mode==='pres'?U.lab('pres'):U.lab('rho')} `
+      +`&nbsp;<span class="pill" style="background:#3da9fc;color:#06223a">z = ${fmt(U.to('alt',z),3)} ${U.lab('alt')}</span>`, atmAt(z))
+      +`<div class="note">${mode==='pres'?'Pressure':'Density'} decreases monotonically with altitude, so this altitude is unique — this is how a pressure altimeter works.</div>`;
+    return;
+  }
+  // temperature (non-monotonic)
+  const Ttar=U.from('temp',raw);
+  const {sols,plateaus}=atmInvertT(Ttar);
+  if(!sols.length && !plateaus.length){
+    out.innerHTML=`<div class="warnbox">Temperature ${fmt(raw,1)} ${U.lab('temp')} does not occur between 0 and 86 km (the model spans ≈ 187–288 K).</div>`; return; }
+  let html=`<div class="warnbox" style="border-color:#3da9fc;background:#0c1a28;color:#bfe6f2">Atmospheric temperature is <b>not monotonic</b>, so a given T can occur at more than one altitude${plateaus.length?', and across whole isothermal layers':''}. All matches:</div>`;
+  if(plateaus.length) html+=card('Isothermal-layer match (T constant over a band)',
+    ftable(plateaus.map(b=>row('Altitude band', fmt(U.to('alt',b[0]),2)+' – '+fmt(U.to('alt',b[1]),2), U.lab('alt')))));
+  sols.forEach((z,i)=>{ html+=card(`Match ${i+1}: z = ${fmt(U.to('alt',z),3)} ${U.lab('alt')}`, atmAt(z)); });
+  html+=`<div class="note">US Standard Atmosphere 1976. Pressure/density modes give a single altitude; temperature can be multi-valued as shown.</div>`;
+  out.innerHTML=html;
 }
 function refreshTrajLabels(){
   const sv=document.getElementById('tr-var').value;
@@ -1816,14 +1872,23 @@ document.querySelectorAll('#tabbar button').forEach(b=>b.addEventListener('click
   p.addEventListener('input',recomputeActive); p.addEventListener('change',recomputeActive);
 });
 document.getElementById('gam').addEventListener('input',recomputeActive);
+// atmosphere solve-mode: seed a sensible default value (in current units) then recompute
+document.getElementById('atm-mode').addEventListener('change',()=>{
+  const m=document.getElementById('atm-mode').value;
+  const siDef={alt:30,pres:1000,temp:250,dens:0.02}[m];
+  const type={alt:'alt',pres:'pres',temp:'temp',dens:'rho'}[m];
+  document.getElementById('atm-z').value=+(U.to(type,siDef)).toPrecision(5);
+  computeAtm();
+});
 let prevUnits='SI';
 document.getElementById('units').addEventListener('change',()=>{
   const next=document.getElementById('units').value;
   const conv=(idu)=>{ const [id,t]=idu; const el=document.getElementById(id); if(!el)return;
     const si=(+el.value)/U.d[t][prevUnits][1]; el.value=+(si*U.d[t][next][1]).toPrecision(6);
     const span=el.parentNode.querySelector('.unit'); if(span)span.textContent=U.d[t][next][0]; };
+  const atmType={alt:'alt',pres:'pres',temp:'temp',dens:'rho'}[document.getElementById('atm-mode').value];
   [['vel','vel'],['temp','temp'],['pres','pres'],['rn','len'],['tw','temp'],['alt','alt'],
-   ['atm-z','alt'],['tr-rn','len'],['tr-alt','alt'],
+   ['atm-z',atmType],['tr-rn','len'],['tr-alt','alt'],
    ['st-p4','pres'],['st-T4','temp'],['st-L4','lenm'],['st-p1','pres'],['st-T1','temp'],['st-L1','lenm']].forEach(conv);
   prevUnits=next; U.sys=next; updateAltReadout(); refreshTrajLabels(); recomputeActive();
 });
