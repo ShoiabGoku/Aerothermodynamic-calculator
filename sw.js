@@ -2,7 +2,7 @@
    Strategy: network-first for index.html (so pushes propagate immediately),
    cache-first for static assets (icons, manifest). Bump VERSION on releases
    that change cached assets. */
-const VERSION = 'aerocalc-v1';
+const VERSION = 'aerocalc-v3';
 const ASSETS = [
   './',
   './index.html',

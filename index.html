@@ -1908,7 +1908,16 @@ showTab('isen');   // default landing tab
 
 /* ---- PWA: offline service worker + install button ---- */
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW:',e)); });
+  // when a new service worker takes control (new version deployed), reload once
+  let _swRefreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(_swRefreshing) return; _swRefreshing=true; location.reload();
+  });
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js')
+      .then(reg=>{ reg.update(); })          // check for a newer version on every load
+      .catch(e=>console.warn('SW:',e));
+  });
 }
 let deferredInstall=null;
 const installBtn=document.getElementById('btnInstall');
