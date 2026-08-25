@@ -1750,17 +1750,20 @@ function relax2T(fs,mode){
     const w=parkRates2T(Y,rho,T,Tv,mode);
     const dY={}; let mx=0;
     for(const s of SPL){ dY[s]=w[s]*SP[s].M/(rho*u); mx=Math.max(mx,Math.abs(dY[s])); }
-    let num=0,den=0;
+    // effective vibrational relaxation length Lv (Landau–Teller); Tv is then advanced
+    // semi-implicitly, so the (stiff) vibrational relaxation never limits the step size —
+    // dx is set by the chemistry alone, exactly like the 1-T solver.
+    let den=0,rate=0;
     for(const s of ['O2','N2','NO']){ if(Y[s]<=1e-8) continue;
-      const tau=tauVib(s,Y,rho,p,T);
-      num+=Y[s]*(evS(s,T)-evS(s,Tv))/tau; den+=Y[s]*cvvS(s,Tv); }
-    const dTv=den>1e-12?num/(den*u):0;
-    mx=Math.max(mx,Math.abs(dTv)/Math.max(Tv,1)*0.05);
+      const tau=tauVib(s,Y,rho,p,T), cvv=cvvS(s,Tv);
+      den+=Y[s]*cvv; rate+=Y[s]*cvv/tau; }
+    const Lv=(den>1e-12 && rate>1e-30)?den*u/rate:1e9;
     dx = mx>0 ? Math.min(Math.max(2e-4/mx,1e-10), xmax/60, dx*2) : xmax/60;
     let sum=0; const Y2={};
     for(const s of SPL){ Y2[s]=Math.max(0,Y[s]+dx*dY[s]); sum+=Y2[s]; }
     for(const s of SPL) Y2[s]/=sum;
-    Tv=Tv+dx*dTv; Y=Y2;
+    Tv = T - (T-Tv)*Math.exp(-dx/Lv);   // exact exponential relaxation toward T over the step
+    Y=Y2;
     const molY=Y.O2+Y.N2+Y.NO;
     const Evc=molY>1e-6?mixEv(Y,Tv):0;
     const st=state(Y,Evc,rho); T=st[0]; p=st[1]; rho=st[2]; u=st[3];
@@ -1786,43 +1789,37 @@ function noneqCard(fs,order){
   const any=chem.find(m=>res[m]&&!res[m].skip&&!res[m].err);
   if(!any){ return `<div class="card"><h3>Nonequilibrium relaxation (finite-rate Park)</h3>
     <p class="muted small">Frozen post-shock temperature is below ≈2200 K — chemistry is effectively frozen at this condition, so there is no relaxation zone to compute.</p></div>`; }
-  // two-temperature (Park T–Tv) for the most complete selected model
-  const topM=chem.includes('s5')?'s5':(chem.includes('s4')?'s4':'s3');
-  let r2=null; try{ r2=relax2T(fs,topM); }catch(e){ console.error('2T:',e); }
-  if(r2&&(r2.skip||!r2.hist)) r2=null;
+  // two-temperature (Park T–Tv) for EVERY selected chemistry model (3/4/5-species)
+  const res2={}; for(const m of chem){ try{ const rr=relax2T(fs,m); res2[m]=(rr&&!rr.skip&&rr.hist)?rr:null; }catch(e){ res2[m]=null; } }
   let rows='';
   for(const m of chem){ const r=res[m]; if(!r||r.skip||r.err) continue;
-    rows+=`<tr><td><span style="color:${MODELS[m].c}">${MODELS[m].n}</span> · 1-T</td>
+    rows+=`<tr><td><span style="color:${MODELS[m].c}">${MODELS[m].n}</span> · 1-T (chem. noneq.)</td>
       <td class="num">${fmt(r.Tf,0)}</td><td class="num">${fmt(r.Te,0)}</td>
       <td class="num">${r.x95!=null?fmt(r.x95*1000,2):'—'}</td>
-      <td class="num">${fmt(r.Yend.O,3)}</td><td class="num">${fmt(r.Yend.N,4)}</td><td class="num">${fmt(r.Yend.NO,4)}</td></tr>`; }
-  if(r2){
-    rows+=`<tr><td><span style="color:#e6b3ff">${MODELS[topM].n} · 2-T Park (T–T<sub>v</sub>)</span></td>
-      <td class="num">${fmt(r2.Tf,0)}</td><td class="num">${fmt(r2.Te,0)}</td>
-      <td class="num">${r2.x95!=null?fmt(r2.x95*1000,2):'—'}</td>
-      <td class="num">${fmt(r2.Yend.O,3)}</td><td class="num">${fmt(r2.Yend.N,4)}</td><td class="num">${fmt(r2.Yend.NO,4)}</td></tr>
-    <tr><td class="muted" colspan="7" style="text-align:left">2-T details: vibrationally-frozen jump T₂=${fmt(r2.Tf,0)} K with T<sub>v</sub>=${fmt(fs.T,0)} K;
-      T–T<sub>v</sub> thermal equilibration (within 5%) at x ≈ ${r2.merge!=null?fmt(r2.merge*1000,2):'—'} mm; final T=T<sub>v</sub>=${fmt(r2.Te,0)} K.</td></tr>`;
+      <td class="num">${fmt(r.Yend.O,3)}</td><td class="num">${fmt(r.Yend.N,4)}</td><td class="num">${fmt(r.Yend.NO,4)}</td></tr>`;
+    const r2=res2[m]; if(r2){
+      rows+=`<tr><td><span style="color:${MODELS[m].c}">${MODELS[m].n}</span> · 2-T Park (T–T<sub>v</sub>)</td>
+        <td class="num">${fmt(r2.Tf,0)}</td><td class="num">${fmt(r2.Te,0)}</td>
+        <td class="num">${r2.merge!=null?fmt(r2.merge*1000,2):(r2.x95!=null?fmt(r2.x95*1000,2):'—')}</td>
+        <td class="num">${fmt(r2.Yend.O,3)}</td><td class="num">${fmt(r2.Yend.N,4)}</td><td class="num">${fmt(r2.Yend.NO,4)}</td></tr>`; }
   }
-  const tbl=`<div class="tablewrap"><table><thead><tr><th>Model</th><th>Frozen T₂ (K)</th><th>Relaxed T (K)</th>
-    <th>95% relax length (mm)</th><th>Y(O)</th><th>Y(N)</th><th>Y(NO)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const tbl=`<div class="tablewrap"><table><thead><tr><th>Model · kinetics</th><th>Frozen T₂ (K)</th><th>Relaxed T (K)</th>
+    <th>Relax length* (mm)</th><th>Y(O)</th><th>Y(N)</th><th>Y(NO)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="note" style="margin-top:4px">*1-T rows: 95% <b>chemical</b>-relaxation length (frozen T₂ = vibrationally-active thermally-perfect jump).
+    2-T rows: T–T<sub>v</sub> <b>thermal</b>-equilibration length (frozen T₂ = the higher vibrationally-frozen jump, with T<sub>v</sub> starting at T∞ = ${fmt(fs.T,0)} K).
+    Both relax to the same final temperature — the equilibrium value.</div>`;
   let xplot=0;
-  for(const m of chem){ const r=res[m]; if(!r||r.skip||r.err) continue;
-    xplot=Math.max(xplot,(r.x95||r.x)*4); }
-  if(r2) xplot=Math.max(xplot,(r2.x95||r2.merge||0.004)*4);
+  for(const m of chem){ const r=res[m]; if(r&&!r.skip&&!r.err) xplot=Math.max(xplot,(r.x95||r.x)*4);
+    const r2=res2[m]; if(r2) xplot=Math.max(xplot,(r2.x95||r2.merge||0.004)*4); }
   xplot=Math.min(Math.max(xplot,0.004),0.5);
   const series=[];
   for(const m of chem){ const r=res[m]; if(!r||r.skip||r.err) continue;
     const xs=[],ys=[]; for(let i=0;i<r.hist.x.length;i++){ if(r.hist.x[i]<=xplot){ xs.push(r.hist.x[i]*1000); ys.push(r.hist.T[i]); } }
-    series.push({x:xs,y:ys,color:MODELS[m].c,label:MODELS[m].n+' (1-T)'}); }
-  if(r2){
-    const xs=[],ys=[],xv=[],yv=[];
-    for(let i=0;i<r2.hist.x.length;i++){ if(r2.hist.x[i]<=xplot){
-      xs.push(r2.hist.x[i]*1000); ys.push(r2.hist.T[i]); xv.push(r2.hist.x[i]*1000); yv.push(r2.hist.Tv[i]); } }
-    series.push({x:xs,y:ys,color:'#e6b3ff',label:'T (2-T)',dash:true});
-    series.push({x:xv,y:yv,color:'#b28dff',label:'Tv (2-T)',dash:true});
-  }
-  const Tplot=svgPlot(series,{xlabel:'distance behind shock x (mm)',ylabel:'T (K)'});
+    series.push({x:xs,y:ys,color:MODELS[m].c,label:MODELS[m].n+' 1-T'}); }
+  for(const m of chem){ const r2=res2[m]; if(!r2) continue;
+    const xs=[],ys=[]; for(let i=0;i<r2.hist.x.length;i++){ if(r2.hist.x[i]<=xplot){ xs.push(r2.hist.x[i]*1000); ys.push(r2.hist.T[i]); } }
+    series.push({x:xs,y:ys,color:MODELS[m].c,label:MODELS[m].n+' 2-T',dash:true}); }
+  const Tplot=svgPlot(series,{xlabel:'distance behind shock x (mm)',ylabel:'T (K)  —  solid: 1-T · dashed: 2-T'});
   const top=chem.includes('s5')?'s5':(chem.includes('s4')?'s4':'s3'); const rt=res[top];
   let Splot='';
   if(rt&&!rt.skip&&!rt.err){
