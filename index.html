@@ -1604,8 +1604,19 @@ const PARK=[
   {A:8.4e6 ,b: 0.0,E:1.62e5,typ:'xNOO'}]; // NO+O=O2+N
 function mixH(Y,T){ let h=0; for(const s of SPL) if(Y[s]>0) h+=Y[s]*hSpecies(s,T)/SP[s].M; return h; }
 function mixMbar(Y){ let inv=0; for(const s of SPL) inv+=Y[s]/SP[s].M; return 1/inv; }
-function solveT_Y(Y,htarget){ let lo=200,hi=30000;
-  for(let i=0;i<64;i++){ const m=0.5*(lo+hi); if(mixH(Y,m)>htarget)hi=m; else lo=m; } return 0.5*(lo+hi); }
+function solveT_Y(Y,htarget,guess){   // warm-started Newton (h,Cp together); bisection fallback
+  let T=(guess>200&&guess<40000)?guess:4000;
+  for(let i=0;i<20;i++){
+    let h=0,cp=0;
+    for(const s of SPL){ if(Y[s]>0){ h+=Y[s]*hSpecies(s,T)/SP[s].M; cp+=Y[s]*cpSpecies(s,T)/SP[s].M; } }
+    if(cp<1e-6) break;
+    const dT=(h-htarget)/cp; T-=dT;
+    if(T<160)T=160; else if(T>40000)T=40000;
+    if(Math.abs(dT)<0.02) return T;
+  }
+  let lo=200,hi=40000;
+  for(let i=0;i<48;i++){ const m=0.5*(lo+hi); if(mixH(Y,m)>htarget)hi=m; else lo=m; } return 0.5*(lo+hi);
+}
 function parkRates(Y,rho,T,mode){
   const c={}; for(const s of SPL) c[s]=rho*Y[s]/SP[s].M;          // mol/m3
   const w={O2:0,N2:0,NO:0,O:0,N:0};
@@ -1635,12 +1646,12 @@ function relaxNoneq(fs,mode){
   const mflux=fs.rho*fs.V, Pmom=fs.p+fs.rho*fs.V*fs.V, Htot=fs.h1+0.5*fs.V*fs.V;
   let rho=sh.rho2,u=sh.u2,T=Tf,p=sh.p2,x=0;
   const hist={x:[0],T:[Tf],Y:[{...Y}]}; let dx=1e-7;
-  const stateFromY=(Yc,rg)=>{ let r=rg;
-    for(let i=0;i<50;i++){ const uu=mflux/r, pp=Pmom-mflux*uu, hh=Htot-0.5*uu*uu;
-      const TT=solveT_Y(Yc,hh), rn=pp*mixMbar(Yc)/(Ru*TT);
+  const stateFromY=(Yc,rg,Tg)=>{ let r=rg;
+    for(let i=0;i<40;i++){ const uu=mflux/r, pp=Pmom-mflux*uu, hh=Htot-0.5*uu*uu;
+      const TT=solveT_Y(Yc,hh,Tg), rn=pp*mixMbar(Yc)/(Ru*TT);
       if(Math.abs(rn-r)<1e-9*r){ r=rn; break; } r=0.5*(r+rn); }
     const uu=mflux/r, pp=Pmom-mflux*uu;
-    return [solveT_Y(Yc,Htot-0.5*uu*uu),pp,r,uu]; };
+    return [solveT_Y(Yc,Htot-0.5*uu*uu,Tg),pp,r,uu]; };
   const xmax=0.5;
   for(let step=0; step<2600 && x<xmax; step++){
     const w=parkRates(Y,rho,T,mode);
@@ -1650,7 +1661,7 @@ function relaxNoneq(fs,mode){
     let sum=0; const Y2={};
     for(const s of SPL){ Y2[s]=Math.max(0,Y[s]+dx*dY[s]); sum+=Y2[s]; }
     for(const s of SPL) Y2[s]/=sum;
-    const st=stateFromY(Y2,rho); T=st[0]; p=st[1]; rho=st[2]; u=st[3]; Y=Y2; x+=dx;
+    const st=stateFromY(Y2,rho,T); T=st[0]; p=st[1]; rho=st[2]; u=st[3]; Y=Y2; x+=dx;
     if(hist.x.length<2400){ hist.x.push(x); hist.T.push(T); hist.Y.push({...Y}); }
     const n=hist.x.length;
     if(x>1e-4 && n>3 && Math.abs(hist.T[n-1]-hist.T[n-2])/Math.max(hist.x[n-1]-hist.x[n-2],1e-12)<1.0) break;
@@ -1673,8 +1684,12 @@ function cvvS(s,Tv){ const d=SP[s]; if(!d.mol) return 0;
   const x=d.thv/Tv, e=Math.exp(x); return Ru/d.M*x*x*e/((e-1)*(e-1)); }
 function mixHtr(Y,T){ let h=0; for(const s of SPL) if(Y[s]>0) h+=Y[s]*htrS(s,T); return h; }
 function mixEv(Y,Tv){ let e=0; for(const s of SPL) if(Y[s]>0) e+=Y[s]*evS(s,Tv); return e; }
-function solveT_tr(Y,target){ let lo=200,hi=40000;
-  for(let i=0;i<64;i++){ const m=0.5*(lo+hi); if(mixHtr(Y,m)>target)hi=m; else lo=m; } return 0.5*(lo+hi); }
+function solveT_tr(Y,target){   // trans+rot enthalpy is linear in T -> solve exactly
+  let A=0,B=0;
+  for(const s of SPL){ if(Y[s]>0){ const cp=(SP[s].mol?3.5:2.5)*Ru/SP[s].M;
+    A+=Y[s]*(SP[s].hf/SP[s].M - cp*Tref); B+=Y[s]*cp; } }
+  return B>1e-9?(target-A)/B:300;
+}
 function tauVib(s,Y,rho,p,T){
   const Mb=mixMbar(Y), pAtm=p/101325, thv=SP[s].thv;
   let inv=0;
