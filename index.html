@@ -3,168 +3,523 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Aerothermodynamics Calculator — Freestream to Surface (Ideal · Real · 3/4/5-Species Air)</title>
+<title>AeroCalc — Compressible Flow, Shock Waves &amp; Aerothermodynamics Calculator</title>
+<meta name="description" content="Free, plain-language calculator for compressible flow: isentropic flow, shock waves, expansion fans, shock tubes, the standard atmosphere, wind pressure and real-gas re-entry heating — for students and engineers from every branch.">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0a0e17">
+<meta name="theme-color" content="#f5f7fb">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
   :root{
-    --bg:#0a0e17; --panel:#121826; --panel2:#0e1420; --line:#223049;
-    --txt:#e6edf6; --muted:#8aa0bd; --accent:#3da9fc; --accent2:#7bdff2;
-    --hot:#ff7849; --good:#43d9a3; --warn:#ffd166; --bad:#ff5d73;
+    --bg:#f5f7fb; --panel:#ffffff; --panel2:#f4f7fb; --line:#e3e9f1; --line2:#d3dce8;
+    --txt:#0f1b2d; --muted:#5b6a80; --faint:#8b98aa;
+    --accent:#1d6fd6; --accent2:#163f7a; --accentSoft:#eaf2fd;
+    --hot:#e8590c; --good:#2b8a3e; --warn:#d99a00; --bad:#d9363e;
+    --thermal:linear-gradient(90deg,#1e3a8a 0%,#2563eb 14%,#0891b2 30%,#16a34a 46%,#ca8a04 61%,#f97316 75%,#dc2626 88%,#9d174d 100%);
+    --heat:linear-gradient(135deg,#ff9a1f 0%,#f2542d 52%,#d6336c 100%);
+    --shadow:0 1px 2px rgba(15,27,45,.05),0 8px 22px -12px rgba(15,27,45,.18);
+    --shadowH:0 2px 6px rgba(15,27,45,.07),0 22px 44px -18px rgba(15,27,45,.30);
     --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
-    --sans:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;
+    --sans:Inter,"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(1200px 700px at 70% -10%,#13243f 0%,var(--bg) 55%);
-       color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  html{scroll-behavior:smooth}
+  body{margin:0;color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
+       background:radial-gradient(900px 420px at 92% -140px,rgba(255,122,48,.13),transparent 62%),
+                  radial-gradient(820px 420px at -8% -120px,rgba(29,111,214,.12),transparent 62%),var(--bg);
+       background-repeat:no-repeat}
+  body.noscroll{overflow:hidden}
   a{color:var(--accent)}
-  header{padding:22px 26px 14px;border-bottom:1px solid var(--line)}
-  header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.2px}
-  header p{margin:5px 0 0;color:var(--muted);font-size:13px;max-width:980px}
-  .wrap{display:grid;grid-template-columns:340px 1fr;gap:0;align-items:start}
-  @media(max-width:1000px){
-    .wrap{grid-template-columns:1fr}
-    /* on narrow screens the controls must be a normal block, not a sticky
-       full-viewport scroll box that traps the results underneath it
-       (.wrap .controls: outranks the later base .controls rule) */
-    .wrap .controls{position:static;max-height:none;overflow:visible;border-right:0;border-bottom:2px solid var(--accent)}
-    .wrap .results{padding:14px 12px}
-    .tool{padding:14px 12px}
-  }
-  .controls{padding:18px 20px;border-right:1px solid var(--line);position:sticky;top:0;max-height:100vh;overflow:auto}
-  .results{padding:18px 22px;min-width:0}
-  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent2);margin:18px 0 8px;font-weight:700}
-  h2:first-child{margin-top:2px}
-  .field{margin-bottom:11px}
-  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
-  .field .row{display:flex;gap:6px;align-items:center}
-  input[type=number],select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
-       border-radius:7px;padding:8px 9px;font-family:var(--mono);font-size:13px}
-  input:focus,select:focus{outline:none;border-color:var(--accent)}
-  .unit{color:var(--muted);font-family:var(--mono);font-size:11px;min-width:42px}
-  .seg{display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
-  .seg button{flex:1;background:var(--panel2);border:0;color:var(--muted);padding:7px 4px;font-size:12px;cursor:pointer}
-  .seg button.on{background:var(--accent);color:#06223a;font-weight:700}
-  .checks{display:flex;flex-direction:column;gap:6px}
-  .chk{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;cursor:pointer;background:var(--panel2)}
-  .chk input{accent-color:var(--accent);width:15px;height:15px}
-  .chk .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
-  .btn{width:100%;margin-top:14px;background:linear-gradient(180deg,#3da9fc,#1f7fd6);border:0;color:#02192e;
-       font-weight:800;letter-spacing:.4px;padding:12px;border-radius:9px;cursor:pointer;font-size:14px}
-  .btn:hover{filter:brightness(1.07)}
-  .hint{font-size:11px;color:var(--muted);margin-top:4px}
-  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
-  .card h3{margin:0 0 4px;font-size:14px}
+  .ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ---------- brand bar ---------- */
+  .brand{display:flex;align-items:center;gap:12px;padding:12px 22px;max-width:1440px;margin:0 auto}
+  .logo{width:40px;height:40px;flex:none;filter:drop-shadow(0 5px 12px rgba(240,84,45,.22))}
+  .bname{font-weight:800;font-size:19px;letter-spacing:-.02em;line-height:1.1}
+  .bname b{background:var(--heat);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .bsub{font-size:12px;color:var(--muted)}
+  .bacts{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .bbtn{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line2);color:var(--txt);border-radius:999px;
+        padding:7px 14px;font:600 13px var(--sans);cursor:pointer;text-decoration:none;box-shadow:0 1px 2px rgba(15,27,45,.05);
+        transition:border-color .15s,box-shadow .15s,transform .15s}
+  .bbtn:hover{border-color:#b9c7d8;box-shadow:var(--shadow);transform:translateY(-1px)}
+  .bbtn svg{width:16px;height:16px}
+  .bbtn.inst{border-color:#a8d5b4;color:var(--good)}
+
+  /* ---------- tab bar ---------- */
+  .tabbar{display:flex;gap:2px;padding:4px 16px 0;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;
+          background:rgba(245,247,251,.9);-webkit-backdrop-filter:saturate(1.5) blur(12px);backdrop-filter:saturate(1.5) blur(12px);
+          overflow-x:auto;scrollbar-width:none}
+  .tabbar::-webkit-scrollbar{display:none}
+  .tabbar button{flex:none;background:transparent;border:0;color:var(--muted);padding:11px 13px 12px;font:600 13.5px var(--sans);cursor:pointer;
+          border-radius:10px 10px 0 0;position:relative;white-space:nowrap;display:inline-flex;align-items:center;gap:7px;transition:color .15s,background .15s}
+  .tabbar button:hover{color:var(--txt);background:rgba(15,27,45,.04)}
+  .tabbar .ti{width:16px;height:16px;opacity:.7}
+  .tabbar button.on{color:var(--txt)}
+  .tabbar button.on .ti{opacity:1;color:var(--hot)}
+  .tabbar button.on::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--thermal)}
+
+  /* ---------- global settings bar ---------- */
+  .gbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:9px 22px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.72);font-size:12.5px}
+  .gbar label{color:var(--muted);display:flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap}
+  .gbar input[type=number],.gbar select{width:auto;min-width:92px;max-width:150px;padding:6px 9px;font-size:13px}
+  .gbar .spacer{flex:1}
+  .xbtn{background:#fff;border:1px solid var(--line2);color:var(--accent2);border-radius:999px;padding:6px 14px;cursor:pointer;font:600 12.5px var(--sans);width:auto;
+        transition:border-color .15s,box-shadow .15s}
+  .xbtn:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+  body[data-tab="home"] .gbar{display:none}
+
+  /* ---------- panels ---------- */
+  .tabpanel{display:none}
+  .tabpanel.active{display:block;animation:fadeUp .35s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .wrap{display:grid;grid-template-columns:350px 1fr;gap:0;align-items:start;max-width:1440px;margin:0 auto}
+  .controls{padding:18px 20px;border-right:1px solid var(--line);position:sticky;top:48px;max-height:calc(100vh - 48px);overflow:auto;background:rgba(255,255,255,.55)}
+  .results{padding:20px 24px;min-width:0}
+  .tool{padding:24px 22px 30px;max-width:1160px;margin:0 auto}
+  .aerohead{max-width:1440px;margin:0 auto;padding:22px 22px 6px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent2);margin:20px 0 9px;font-weight:800}
+  h2:first-child{margin-top:4px}
+  .tool > h2,.aerohead > h2{font-size:clamp(21px,2.4vw,27px);text-transform:none;letter-spacing:-.02em;color:var(--txt);margin:2px 0 6px;
+        display:flex;align-items:center;gap:12px;font-weight:800}
+  .hic{width:40px;height:40px;border-radius:12px;display:inline-grid;place-items:center;flex:none;background:var(--cb,#eaf2fd);color:var(--c,#1d6fd6)}
+  .hic svg{width:23px;height:23px}
+  .tsub{margin:0 0 18px;color:var(--muted);font-size:15px;max-width:860px}
+  .c-home{--c:#475569;--cb:#eef2f6} .c-isen{--c:#1c6fd6;--cb:#e7f0fd} .c-ns{--c:#d6336c;--cb:#fdebf1} .c-obl{--c:#6741d9;--cb:#f1ecfd}
+  .c-cone{--c:#0c8599;--cb:#e3f7f9} .c-pm{--c:#1098ad;--cb:#e3f6fb} .c-aero{--c:#e8590c;--cb:#fff0e6} .c-stube{--c:#4263eb;--cb:#ebeefe}
+  .c-atm{--c:#2b8a3e;--cb:#e9f7ec} .c-traj{--c:#b07a00;--cb:#fff6e0}
+
+  /* ---------- form controls ---------- */
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:5px}
+  .field .row{display:flex;gap:7px;align-items:center}
+  input[type=number],input[type=search],select{width:100%;background:#fff;border:1px solid var(--line2);color:var(--txt);border-radius:10px;padding:9px 11px;
+       font:500 14px/1.25 var(--sans);font-variant-numeric:tabular-nums;transition:border-color .15s,box-shadow .15s}
+  select{cursor:pointer}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,111,214,.16)}
+  .unit{color:var(--muted);font-size:12px;min-width:44px;font-weight:600}
+  .seg{display:flex;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:3px}
+  .seg button{flex:1;background:transparent;border:0;color:var(--muted);padding:7px 8px;font:600 12.5px var(--sans);cursor:pointer;border-radius:8px;transition:all .15s}
+  .seg button:hover{color:var(--txt)}
+  .seg button.on{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(15,27,45,.14)}
+  .checks{display:flex;flex-direction:column;gap:7px}
+  .chk{display:flex;align-items:center;gap:9px;font-size:13.5px;padding:8px 10px;border:1px solid var(--line);border-radius:11px;cursor:pointer;background:#fff;transition:border-color .15s,background .15s}
+  .chk:hover{border-color:var(--line2)}
+  .chk:has(input:checked){border-color:#c9daf0;background:#f7fbff}
+  .chk input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+  .chk .sw{width:12px;height:12px;border-radius:4px;display:inline-block;flex:none}
+  .btn{width:100%;margin-top:16px;background:var(--heat);border:0;color:#fff;font:800 15px var(--sans);letter-spacing:.3px;padding:13px;border-radius:12px;cursor:pointer;
+       box-shadow:0 10px 22px -10px rgba(242,84,45,.7);transition:transform .15s,box-shadow .15s,filter .15s}
+  .btn:hover{transform:translateY(-1px);filter:saturate(1.1);box-shadow:0 14px 28px -12px rgba(242,84,45,.75)}
+  .btn:active{transform:none}
+  .hint{font-size:12px;color:var(--muted);margin-top:5px}
+  .inrow{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:10px;padding:14px 16px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .inrow .field{margin-bottom:0;min-width:160px;flex:1 1 160px;max-width:300px}
+  .inrow .field.sm{min-width:120px;flex:1 1 120px;max-width:210px}
+  .note{font-size:13px;color:var(--muted);margin:6px 2px 14px}
+
+  /* ---------- results ---------- */
+  .pill{display:inline-flex;align-items:center;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.01em;border:1px solid rgba(15,27,45,.07)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .card h3{margin:0 0 9px;font-size:15.5px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
-  .stat .k{font-size:11px;color:var(--muted)}
-  .stat .v{font-family:var(--mono);font-size:16px;margin-top:2px}
-  .stat .v small{font-size:11px;color:var(--muted)}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .stat .k{font-size:11.5px;color:var(--muted);font-weight:600}
+  .stat .v{font-size:18px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .stat .v small{font-size:11.5px;color:var(--muted);font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 11px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
   th:first-child,td:first-child{text-align:left}
-  thead th{color:var(--accent2);font-size:11px;text-transform:uppercase;letter-spacing:.6px;position:sticky;top:0;background:var(--panel)}
-  tbody tr:hover{background:#0f1726}
-  td.num{font-family:var(--mono)}
-  .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-  .muted{color:var(--muted)}
-  .small{font-size:12px}
-  details{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:12px;background:var(--panel2)}
-  summary{cursor:pointer;font-weight:600;color:var(--accent2)}
-  details p,details li{font-size:12.5px;color:var(--muted)}
-  code{font-family:var(--mono);background:#0c1422;padding:1px 5px;border-radius:4px;color:var(--accent2);font-size:12px}
-  .regimebar{display:flex;gap:0;border-radius:8px;overflow:hidden;margin-top:6px;border:1px solid var(--line)}
-  .regimebar div{flex:1;text-align:center;font-size:11px;padding:5px 2px;color:var(--muted);background:var(--panel2)}
-  .regimebar div.on{color:#02192e;font-weight:800}
-  .foot{padding:16px 26px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
-  .warnbox{border:1px solid var(--warn);background:#241f0c;color:#ffe49a;border-radius:9px;padding:9px 12px;font-size:12.5px;margin-bottom:12px}
+  tbody tr:last-child td{border-bottom:0}
+  thead th{color:var(--accent2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;position:sticky;top:0;background:#f7f9fc}
+  tbody tr:hover{background:#f6faff}
+  td.num{font-variant-numeric:tabular-nums;font-weight:600;color:#1b2a40}
+  .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .muted{color:var(--muted)} .small{font-size:12.5px} .bad{color:var(--bad)}
+  details{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:12px;background:#fff}
+  summary{cursor:pointer;font-weight:700;color:var(--accent2)}
+  details[open] > summary{margin-bottom:6px}
+  details p,details li{font-size:13px;color:#46566c}
+  code{font-family:var(--mono);background:#eef3f9;padding:1px 6px;border-radius:5px;color:#1f4f8f;font-size:12.5px}
+  .regimebar{display:flex;gap:4px;margin-top:9px}
+  .regimebar div{flex:1;text-align:center;font-size:11.5px;font-weight:600;padding:6px 2px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+  .regimebar div.on{color:#0f1b2d;font-weight:800;border-color:transparent}
+  .warnbox{border:1px solid #f2d27c;background:#fff8e6;color:#6e5100;border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:14px}
+  .infobox{border:1px solid #bcd6f5;background:#eef5fe;color:#1b4a80;border-radius:12px;padding:11px 14px;font-size:13.5px;margin:0 0 14px;line-height:1.55}
   .barcell{position:relative}
   .barcell span{position:relative;z-index:1}
-  .barcell i{position:absolute;left:0;top:0;bottom:0;background:#1d3a5f;border-radius:3px;z-index:0}
-  /* ---- tabs ---- */
-  .tabbar{display:flex;flex-wrap:wrap;gap:4px;padding:8px 20px 0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:20}
-  .tabbar button{background:transparent;border:1px solid transparent;border-bottom:0;color:var(--muted);
-       padding:8px 13px;font-size:13px;cursor:pointer;border-radius:8px 8px 0 0;font-weight:600}
-  .tabbar button:hover{color:var(--txt)}
-  .tabbar button.on{background:var(--panel);border-color:var(--line);color:var(--accent2)}
-  .gbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:9px 20px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12.5px}
-  .gbar label{color:var(--muted);display:flex;align-items:center;gap:6px}
-  .gbar input,.gbar select{width:90px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 7px;font-family:var(--mono);font-size:12px}
-  .gbar .spacer{flex:1}
-  .gbar .xbtn{background:var(--panel);border:1px solid var(--line);color:var(--accent2);border-radius:7px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:600;width:auto}
-  .gbar .xbtn:hover{border-color:var(--accent)}
-  .tabpanel{display:none}
-  .tabpanel.active{display:block}
-  /* single-tool panel layout */
-  .tool{padding:18px 22px;max-width:1100px}
-  .tool h2{margin-top:0}
-  .inrow{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:6px}
-  .inrow .field{margin-bottom:0;min-width:150px}
-  .inrow .field.sm{min-width:110px}
-  .note{font-size:12px;color:var(--muted);margin:4px 0 12px}
-  svg.plot{width:100%;max-width:680px;height:auto;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
-  svg.plot text{fill:var(--muted);font-family:var(--sans)}
-  details.eqwrap{border-color:var(--accent)}
-  details.eqwrap summary{color:var(--accent2);font-size:13.5px}
+  .barcell i{position:absolute;left:0;top:3px;bottom:3px;background:linear-gradient(90deg,#d6e8fc,#a9cdf6);border-radius:4px;z-index:0}
+  svg.plot{width:100%;max-width:700px;height:auto;background:#fff;border:1px solid var(--line);border-radius:14px}
+  svg.plot text:not([fill]){fill:#5b6a80}
+  svg.plot text,svg.ladder text{font-family:var(--sans)}
+  svg.ladder{width:100%;height:auto;display:block}
+  .ladsum{font-size:13.5px;color:#3b4a5e;margin:6px 2px 0}
+  .ladleg{display:flex;flex-wrap:wrap;gap:5px 14px;margin:8px 2px 0;font-size:12.5px;color:#3b4a5e}
+  .ladleg span{display:inline-flex;align-items:center;gap:6px}
+  .ladleg i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+  details.eqwrap{border-color:#f3c9b0;background:linear-gradient(180deg,#fffaf6,#fff)}
+  details.eqwrap summary{color:#b4410a;font-size:13.5px}
   .eqdoc{font-size:13px;padding-top:4px}
   .eqdoc h4{color:var(--accent2);margin:15px 0 5px;font-size:13px;border-bottom:1px solid var(--line);padding-bottom:3px}
   .eqdoc h4:first-child{margin-top:4px}
   .eqdoc p{margin:5px 0;color:var(--muted)}
-  .eqn{background:#0e1726;border:1px solid #24344c;border-left:3px solid var(--accent);border-radius:6px;
-       padding:7px 12px;margin:6px 0;font-family:"Cambria Math","Times New Roman",serif;font-size:14.5px;color:var(--txt);overflow-x:auto}
+  .eqn{background:#f7f9fc;border:1px solid var(--line);border-left:3px solid var(--hot);border-radius:8px;
+       padding:8px 12px;margin:6px 0;font-family:"Cambria Math","Times New Roman",serif;font-size:14.5px;color:var(--txt);overflow-x:auto}
   .eqn small{color:var(--muted);font-family:var(--sans);font-size:11.5px}
-  details.about{border-color:#2d5a7a;background:#0c1a28;margin:10px 0 12px}
-  details.about summary{color:#7bdff2;font-size:13px;font-weight:600}
-  .about p{margin:6px 0;color:var(--muted);font-size:12.7px;line-height:1.5}
+  details.about{border-color:#cfe0f5;background:linear-gradient(180deg,#f4f9ff,#fff);margin:10px 0 14px}
+  details.about summary{color:var(--accent);font-size:13.5px}
+  .about p{margin:6px 0;color:#46566c;font-size:13px;line-height:1.55}
   .about b{color:var(--accent2)}
-  .modeldesc{font-size:11.5px;color:var(--muted);margin:2px 0 8px;line-height:1.4}
+  .modeldesc{font-size:12px;color:var(--muted);margin:0 0 9px;line-height:1.45}
+  .term{text-decoration:underline dotted #8fa6c2;text-underline-offset:3px;text-decoration-thickness:1.5px;cursor:help}
+  .term:hover{color:var(--accent)}
+
+  /* ---------- HOME ---------- */
+  .home{max-width:1220px;margin:0 auto;padding:30px 22px 20px}
+  .hero{display:grid;grid-template-columns:1fr 1.05fr;gap:36px;align-items:center}
+  .eyebrow{display:inline-flex;gap:8px;align-items:center;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#c2410c;
+           background:#fff1e8;border:1px solid #ffd8c2;padding:5px 12px;border-radius:999px}
+  .hero h1{font-size:clamp(32px,4.4vw,54px);line-height:1.04;letter-spacing:-.035em;margin:16px 0 16px;font-weight:800}
+  .hero h1 .grad{background:var(--thermal);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{font-size:17px;color:#3b4a5e;max-width:580px;margin:0}
+  .ctas{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0 18px}
+  .cta{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;padding:12px 19px;background:var(--heat);color:#fff;font:800 15px var(--sans);cursor:pointer;
+       box-shadow:0 12px 24px -12px rgba(242,84,45,.75);transition:transform .15s,box-shadow .15s}
+  .cta:hover{transform:translateY(-2px);box-shadow:0 16px 30px -14px rgba(242,84,45,.8)}
+  .cta2{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);border-radius:12px;padding:11px 16px;background:#fff;color:var(--txt);font:700 14.5px var(--sans);
+        cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s}
+  .cta2:hover{border-color:#b6c5d8;transform:translateY(-2px);box-shadow:var(--shadow)}
+  .trust{display:flex;gap:8px 16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);font-weight:600}
+  .trust span::before{content:"✓ ";color:var(--good);font-weight:900}
+  .viz{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadowH);padding:14px;position:relative}
+  .vizhead{display:flex;align-items:center;justify-content:space-between;margin:0 2px 10px;gap:10px;flex-wrap:wrap}
+  .live{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+  .live i{width:8px;height:8px;border-radius:50%;background:#ef4444;animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+  .seg.mini{display:inline-flex}
+  .seg.mini button{flex:none;padding:5px 13px}
+  #heroCanvas{width:100%;height:320px;display:block;border-radius:14px;border:1px solid var(--line)}
+  .cbar{position:relative;margin:4px 6px 0;padding-top:26px}
+  .cbar-grad{height:9px;border-radius:99px;background:var(--thermal)}
+  .cbar-mark{position:absolute;top:14px;left:50%;width:0;height:0;transition:left .35s ease}
+  .cbar-mark::before{content:"";position:absolute;left:-7px;top:0;border:7px solid transparent;border-top:9px solid #0f1b2d;border-bottom:0}
+  .cbar-mark span{position:absolute;top:-16px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:800;background:#0f1b2d;color:#fff;padding:1px 7px;border-radius:6px}
+  .cbar-ticks{position:relative;height:16px;margin-top:4px}
+  .cbar-ticks span{position:absolute;transform:translateX(-50%);font-size:10.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+  .mrow{display:flex;align-items:center;gap:12px;margin:10px 4px 0}
+  .mrow label{font-weight:800;font-size:13px;color:var(--txt)}
+  .mrow output{min-width:78px;text-align:right;font-weight:900;font-size:21px;font-variant-numeric:tabular-nums;color:var(--txt)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:10px;border-radius:99px;background:var(--thermal);outline:none;cursor:pointer;margin:0;flex:1}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #0f1b2d;box-shadow:0 3px 10px rgba(15,27,45,.3);cursor:grab}
+  input[type=range]::-moz-range-thumb{width:19px;height:19px;border-radius:50%;background:#fff;border:3px solid #0f1b2d;box-shadow:0 3px 10px rgba(15,27,45,.3);cursor:grab}
+  input[type=range]::-moz-range-track{height:10px;border-radius:99px;background:var(--thermal)}
+  input[type=range]:focus-visible{box-shadow:0 0 0 4px rgba(29,111,214,.22)}
+  .rgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+  @media(min-width:1320px){ .rgrid{grid-template-columns:repeat(4,1fr)} }
+  .rbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:9px 11px;min-width:0}
+  .rk{font-size:10.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+  .rv{font-size:18px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rs{font-size:11.5px;color:var(--muted);line-height:1.35}
+  .rbox.hot{background:linear-gradient(135deg,#fff4ec,#ffe9e3);border-color:#ffd2bf}
+  .rbox.hot .rv{color:#c2410c}
+  .rv.rg-sub{color:#2b8a3e} .rv.rg-tran{color:#b07a00} .rv.rg-sup{color:#1c6fd6} .rv.rg-hyp{color:#d6336c}
+  .vexp{font-size:13.5px;color:#3b4a5e;margin:12px 3px 2px;min-height:42px}
+  .sect{margin-top:52px;scroll-margin-top:62px}
+  .sect h3{font-size:clamp(21px,2.4vw,28px);letter-spacing:-.025em;margin:0 0 6px;font-weight:800}
+  .sect .sub{color:var(--muted);margin:0 0 20px;font-size:15.5px}
+  .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px}
+  .tcard{position:relative;text-align:left;display:flex;flex-direction:column;gap:7px;padding:18px 18px 16px;border:1px solid var(--line);border-radius:18px;background:#fff;
+         box-shadow:var(--shadow);cursor:pointer;font:inherit;color:inherit;transition:transform .2s,box-shadow .2s,border-color .2s;overflow:hidden}
+  .tcard::after{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c);opacity:0;transition:opacity .2s}
+  .tcard:hover{transform:translateY(-4px);box-shadow:var(--shadowH);border-color:#cdd9e8}
+  .tcard:hover::after{opacity:1}
+  .tcard:focus-visible{outline:3px solid rgba(29,111,214,.35);outline-offset:2px}
+  .ticon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--cb);color:var(--c)}
+  .ticon svg{width:27px;height:27px}
+  .tq{font-weight:800;font-size:15.5px;line-height:1.3;letter-spacing:-.01em}
+  .tname{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--c)}
+  .tdesc{font-size:13.5px;color:var(--muted)}
+  .ttags{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+  .ttags i{font-style:normal;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:#4a5a70}
+  .ttags i[data-d=civ]{background:#ecf8ef;border-color:#cdebd4;color:#237032}
+  .ttags i[data-d=mec]{background:#fff2e8;border-color:#ffd9bf;color:#a8410a}
+  .ttags i[data-d=aer]{background:#eaf2fd;border-color:#cbdcf6;color:#1d4f9a}
+  .ttags i[data-d=chm]{background:#f3eefe;border-color:#ddd0fb;color:#5b34c2}
+  .ttags i[data-d=ene]{background:#fff7df;border-color:#f6e2a6;color:#8a6200}
+  .tgo{margin-top:auto;padding-top:4px;font-size:13px;font-weight:800;color:var(--c)}
+  .ideas{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .idea{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+  .inum{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:900;color:#fff;background:var(--heat);margin-bottom:9px}
+  .idea h4{margin:0 0 6px;font-size:16px;letter-spacing:-.01em}
+  .idea p{margin:0;color:#46566c;font-size:14px}
+  .disc{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .dcard{border-radius:16px;padding:16px;border:1px solid var(--line);background:#fff}
+  .dcard h4{margin:0 0 6px;font-size:15px}
+  .dcard p{margin:0;font-size:13.5px;color:#46566c}
+  .d-civil{background:linear-gradient(160deg,#effaf2,#fff 62%)} .d-mech{background:linear-gradient(160deg,#fff4ea,#fff 62%)}
+  .d-chem{background:linear-gradient(160deg,#f4efff,#fff 62%)} .d-aero{background:linear-gradient(160deg,#ecf4ff,#fff 62%)}
+
+  /* ---------- glossary drawer ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(15,27,45,.35);opacity:0;pointer-events:none;transition:opacity .25s;z-index:90}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,94vw);background:#fff;box-shadow:-24px 0 60px -24px rgba(15,27,45,.45);transform:translateX(105%);
+          transition:transform .3s cubic-bezier(.2,.8,.2,1);z-index:91;display:flex;flex-direction:column}
+  .drawer.open{transform:none}
+  .drawer::before{content:"";height:4px;background:var(--thermal);flex:none}
+  .dhead{display:flex;gap:12px;align-items:flex-start;padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+  .dtitle{font-size:19px;font-weight:800;letter-spacing:-.01em}
+  .dsub{font-size:12.5px;color:var(--muted)}
+  .dclose{margin-left:auto;border:1px solid var(--line2);background:#fff;border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:15px;color:var(--muted);flex:none}
+  .dclose:hover{color:var(--txt);border-color:#b9c7d8}
+  .dsearch{margin:12px 18px 6px;width:calc(100% - 36px)}
+  .dlist{overflow:auto;padding:4px 18px 30px;flex:1}
+  .gterm{padding:13px 8px;border-bottom:1px solid var(--line);border-radius:10px;transition:background .5s}
+  .gterm h4{margin:0 0 4px;font-size:15px}
+  .gterm p{margin:0 0 4px;font-size:13.5px;color:#3b4a5e}
+  .gterm .eg{font-style:italic;color:#7a5a12}
+  .gterm.flash{background:#fff2cc}
+  .glink{margin-top:4px;border:0;background:none;color:var(--accent);font:700 12.5px var(--sans);cursor:pointer;padding:0}
+  .glink:hover{text-decoration:underline}
+
+  /* ---------- footer ---------- */
+  .foot{margin-top:40px;border-top:1px solid var(--line);background:#fff;color:var(--muted);font-size:12.5px}
+  .foot::before{content:"";display:block;height:3px;background:var(--thermal);opacity:.85}
+  .fin{max-width:1220px;margin:0 auto;padding:22px;display:grid;gap:8px}
+  .fin b{color:var(--txt)}
+
+  /* ---------- responsive ---------- */
+  @media(max-width:1000px){
+    .wrap{grid-template-columns:1fr}
+    /* on narrow screens the controls must be a normal block, not a sticky
+       full-viewport scroll box that traps the results underneath it
+       (.wrap .controls: outranks the base .controls rule) */
+    .wrap .controls{position:static;max-height:none;overflow:visible;border-right:0;border-bottom:1px solid var(--line)}
+    .wrap .results{padding:16px 14px}
+    .tool{padding:18px 14px 24px}
+    .aerohead{padding:18px 14px 4px}
+    .hero{grid-template-columns:1fr;gap:26px}
+    .rgrid{grid-template-columns:repeat(4,1fr)}
+    .disc{grid-template-columns:1fr 1fr}
+  }
+  @media(max-width:1279px){ .tabbar .ti{display:none} .tabbar button{padding:11px 11px 12px} }
+  @media(max-width:860px){ .ideas{grid-template-columns:1fr} }
+  @media(max-width:680px){ .rgrid{grid-template-columns:1fr 1fr} }
+  @media(max-width:640px){
+    .bsub,.bbtn .lbl{display:none}
+    .bbtn{padding:8px 10px}
+    .brand{padding:10px 14px}
+    .home{padding:20px 14px}
+    #heroCanvas{height:240px}
+    .inrow .field,.inrow .field.sm{max-width:none}
+    .disc{grid-template-columns:1fr}
+    .lede{font-size:16px}
+    /* phones: headline, then the live model straight away, then the words and buttons */
+    .htext{display:contents}
+    .hero{gap:14px}
+    .hero .eyebrow{order:1;justify-self:start}
+    .hero h1{order:2;margin:2px 0 4px}
+    .viz{order:3}
+    .lede{order:4}
+    .ctas{order:5;margin:4px 0 2px}
+    .trust{order:6}
+  }
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} html{scroll-behavior:auto} }
   @media print{
-    .tabbar,.gbar,.controls,.btn,.foot,#velMode,#atmMode{display:none!important}
+    .brand,.tabbar,.gbar,.controls,.btn,.foot,.drawer,.scrim,#tab-home,#velMode,#atmMode,.tsub,.hic{display:none!important}
     body{background:#fff;color:#000}
-    .card,.stat,.tablewrap,svg.plot{break-inside:avoid;border-color:#bbb;background:#fff}
+    .card,.stat,.tablewrap,svg.plot,.inrow{break-inside:avoid;border-color:#bbb;background:#fff;box-shadow:none}
     .tabpanel:not(.active){display:none}
-    th{background:#27496d!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .tabpanel.active{animation:none}
+    th{background:#e8eef6!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .results{padding:0}
   }
 </style>
 </head>
-<body>
-<header>
-  <h1>Compressible &amp; Hypersonic Aerodynamics Calculator <span class="muted" style="font-weight:400">· an open tool for compressible-flow &amp; aerothermodynamics studies</span></h1>
-  <p>A free, browser-based suite: isentropic relations, normal / oblique / conical shocks and Prandtl–Meyer expansion (perfect gas, any γ),
-     plus a high-temperature <b>real-gas aerothermodynamics</b> module (ideal · thermally-perfect · 3/4/5-species equilibrium air) for stagnation heating,
-     shock stand-off and surface loads. Valid subsonic → hypersonic.</p>
+<body data-tab="home">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="ic-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></symbol>
+    <symbol id="ic-isen" viewBox="0 0 24 24"><path d="M2 6c4 0 6 3.5 9 3.5S18 5 22 4"/><path d="M2 18c4 0 6-3.5 9-3.5S18 19 22 20"/><path d="M5 12h12m-3-2.5L17 12l-3 2.5"/></symbol>
+    <symbol id="ic-ns" viewBox="0 0 24 24"><path d="M12 3v18" stroke-width="2.6"/><path d="M2 12h7m-2.5-2.5L9 12l-2.5 2.5"/><path d="M15 12h4m-1.6-1.6L19 12l-1.6 1.6"/></symbol>
+    <symbol id="ic-obl" viewBox="0 0 24 24"><path d="M2 19h20"/><path d="M8 19l13-6v6z"/><path d="M8 19 18 4"/></symbol>
+    <symbol id="ic-cone" viewBox="0 0 24 24"><path d="M2 12h4"/><path d="M6 12 21 7v10z"/><path d="M6 12 17 3M6 12l11 9"/></symbol>
+    <symbol id="ic-pm" viewBox="0 0 24 24"><path d="M2 10h9l10 7"/><path d="M11 10 9 3M11 10l3-7M11 10l8-4"/></symbol>
+    <symbol id="ic-aero" viewBox="0 0 24 24"><path d="M15 6.5h6v11h-6a5.5 5.5 0 0 1 0-11z"/><path d="M8 2.5C3.5 7 3.5 17 8 21.5"/></symbol>
+    <symbol id="ic-stube" viewBox="0 0 24 24"><rect x="2" y="8" width="20" height="8" rx="2"/><path d="M9 8v8" stroke-dasharray="2 1.6"/><path d="M15 9.5v5" stroke-width="2.4"/></symbol>
+    <symbol id="ic-atm" viewBox="0 0 24 24"><path d="M2 20l6-8 4 5 3-3.5L22 20z"/><path d="M4 6h5M12 4h8M14 8h6"/></symbol>
+    <symbol id="ic-traj" viewBox="0 0 24 24"><path d="M3 20C6 9 13 4 21 4"/><circle cx="21" cy="4" r="1.6" fill="currentColor"/><path d="M3 20h18" opacity=".45"/></symbol>
+    <symbol id="ic-book" viewBox="0 0 24 24"><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z"/><path d="M12 6v13"/></symbol>
+    <symbol id="ic-down" viewBox="0 0 24 24"><path d="M12 4v11m-4-4 4 4 4-4"/><path d="M5 19h14"/></symbol>
+    <symbol id="ic-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></symbol>
+  </defs>
+</svg>
+
+<header class="brand">
+  <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+    <defs>
+      <linearGradient id="lgHeat" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ff9a1f"/><stop offset=".55" stop-color="#f2542d"/><stop offset="1" stop-color="#d6336c"/></linearGradient>
+      <linearGradient id="lgCool" x1="0" x2="1"><stop offset="0" stop-color="#1d6fd6"/><stop offset="1" stop-color="#0891b2"/></linearGradient>
+    </defs>
+    <rect x="1" y="1" width="46" height="46" rx="13" fill="#fff" stroke="#e3e9f1"/>
+    <path d="M11 12C5 18 5 30 11 36" fill="none" stroke="url(#lgCool)" stroke-width="2" stroke-linecap="round" opacity=".75"/>
+    <path d="M18 9C8 17 8 31 18 39" fill="none" stroke="url(#lgHeat)" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M28 15h12v18H28a9 9 0 0 1 0-18z" fill="#334155"/>
+    <circle cx="23" cy="24" r="4.2" fill="url(#lgHeat)"/>
+  </svg>
+  <div>
+    <div class="bname">Aero<b>Calc</b></div>
+    <div class="bsub">Compressible flow, shock waves &amp; heat — explained</div>
+  </div>
+  <div class="bacts">
+    <button class="bbtn" id="btnGloss" type="button" title="Plain-language glossary of every term"><svg class="ic"><use href="#ic-book"/></svg><span class="lbl">Basics &amp; glossary</span></button>
+    <button class="bbtn inst" id="btnInstall" type="button" style="display:none" title="Install as an app — desktop icon, own window, works offline"><svg class="ic"><use href="#ic-down"/></svg><span class="lbl">Install app</span></button>
+    <a class="bbtn" href="https://github.com/ShoiabGoku/Aerothermodynamic-calculator" target="_blank" rel="noopener" title="Source code on GitHub"><svg class="ic"><use href="#ic-code"/></svg><span class="lbl">Source</span></a>
+  </div>
 </header>
 
-<div class="tabbar" id="tabbar">
-  <button data-tab="isen" class="on">Isentropic</button>
-  <button data-tab="ns">Normal shock</button>
-  <button data-tab="obl">Oblique shock</button>
-  <button data-tab="cone">Cone (Taylor–Maccoll)</button>
-  <button data-tab="pm">Prandtl–Meyer</button>
-  <button data-tab="aero">Aerothermo (real gas)</button>
-  <button data-tab="stube">Shock tube / tunnel</button>
-  <button data-tab="atm">Atmosphere</button>
-  <button data-tab="traj">Trajectory sweep</button>
-</div>
+<nav class="tabbar" id="tabbar" aria-label="Calculator tools">
+  <button data-tab="home" class="on" title="Start here — what each tool does, in plain words"><svg class="ic ti"><use href="#ic-home"/></svg>Home</button>
+  <button data-tab="isen" title="Smooth flow: how speed changes pressure, temperature and density (nozzles, pipes)"><svg class="ic ti"><use href="#ic-isen"/></svg>Isentropic</button>
+  <button data-tab="ns" title="A shock wave straight across the flow (sonic booms, blasts, inlets)"><svg class="ic ti"><use href="#ic-ns"/></svg>Normal shock</button>
+  <button data-tab="obl" title="An angled shock from a wedge or ramp"><svg class="ic ti"><use href="#ic-obl"/></svg>Oblique shock</button>
+  <button data-tab="cone" title="Supersonic flow over a pointed cone (Taylor–Maccoll)"><svg class="ic ti"><use href="#ic-cone"/></svg>Cone</button>
+  <button data-tab="pm" title="Flow speeding up around a corner (Prandtl–Meyer expansion)"><svg class="ic ti"><use href="#ic-pm"/></svg>Expansion fan</button>
+  <button data-tab="aero" title="Real-gas hypersonic heating: re-entry temperatures, heat flux, shock stand-off"><svg class="ic ti"><use href="#ic-aero"/></svg>Aerothermo</button>
+  <button data-tab="stube" title="Shock tube and reflected-shock tunnel"><svg class="ic ti"><use href="#ic-stube"/></svg>Shock tube</button>
+  <button data-tab="atm" title="Air properties vs altitude, inverse lookup and wind pressure"><svg class="ic ti"><use href="#ic-atm"/></svg>Atmosphere</button>
+  <button data-tab="traj" title="Heating and shock stand-off along a flight path"><svg class="ic ti"><use href="#ic-traj"/></svg>Trajectory</button>
+</nav>
 <div class="gbar">
-  <label title="Ratio of specific heats for the perfect-gas tools">γ (perfect-gas tools)
+  <label title="Ratio of specific heats used by the perfect-gas tools (air = 1.4, helium = 1.667)">γ · ratio of specific heats
     <input id="gam" type="number" step="0.01" value="1.4"></label>
-  <label title="Unit system for dimensional quantities (Aerothermo, Atmosphere, Trajectory)">Units
-    <select id="units"><option value="SI">SI</option><option value="US">US / Imperial</option></select></label>
+  <label title="Unit system for dimensional quantities (Aerothermo, Atmosphere, Trajectory, Shock tube)">Units
+    <select id="units"><option value="SI">SI (metric)</option><option value="US">US / Imperial</option></select></label>
   <span class="spacer"></span>
-  <button class="xbtn" id="btnInstall" style="display:none;border-color:var(--good);color:var(--good)" title="Install this calculator as an app — desktop icon, own window, works offline">⬇ Install app</button>
   <button class="xbtn" id="btnCsv" title="Download the current results table as CSV">⤓ CSV</button>
   <button class="xbtn" id="btnPrint" title="Print or save the current tab as PDF">🖨 Print / PDF</button>
 </div>
 
+<!-- ===================== TAB: HOME ===================== -->
+<section id="tab-home" class="tabpanel active">
+ <div class="home">
+  <div class="hero">
+   <div class="htext">
+    <span class="eyebrow">🔥 Compressible flow &amp; heat</span>
+    <h1>Fast air <span class="grad">gets hot.</span><br>See how hot — and why.</h1>
+    <p class="lede">From compressed-air lines and gas pipelines to sonic booms, blast waves and spacecraft re-entry — calculate what happens
+      when gases move fast. Made for students and engineers from <b>every</b> branch, with plain-language help on every result.</p>
+    <div class="ctas">
+      <button class="cta" type="button" id="ctaTools">Explore the tools ↓</button>
+      <button class="cta2" type="button" data-go="aero">🚀 Re-entry heating</button>
+      <button class="cta2" type="button" id="ctaGloss">📘 New here? Learn the basics</button>
+    </div>
+    <div class="trust"><span>Verified against NACA 1135 &amp; Anderson</span><span>9 tools, one page</span><span>Free &amp; open source</span><span>Works offline · installable</span></div>
+   </div>
+   <div class="viz">
+    <div class="vizhead">
+      <span class="live"><i></i>Live flow model · drag the speed</span>
+      <div class="seg mini" id="heroGas" role="group" aria-label="Gas model">
+        <button type="button" data-g="real" class="on" title="Real air: molecules vibrate and break apart, soaking up heat">Real air</button>
+        <button type="button" data-g="ideal" title="Ideal gas: the simple textbook model with no chemistry">Ideal gas</button>
+      </div>
+    </div>
+    <canvas id="heroCanvas" role="img" aria-label="Animated air flow around a blunt body. Streaks are coloured by temperature; a bow shock forms above Mach 1."></canvas>
+    <div class="cbar" aria-hidden="true"><div class="cbar-grad"></div><div class="cbar-mark" id="heroMark"><span>nose</span></div><div class="cbar-ticks" id="heroTicks"></div></div>
+    <div class="mrow">
+      <label for="heroMach">Speed</label>
+      <input id="heroMach" type="range" min="0" max="1000" value="709" aria-label="Mach number">
+      <output id="heroM" for="heroMach">M 7.0</output>
+    </div>
+    <div class="rgrid">
+      <div class="rbox"><div class="rk">Flight regime</div><div class="rv" id="heroRegime">—</div><div class="rs" id="heroLike">—</div></div>
+      <div class="rbox"><div class="rk">Speed (30 km up)</div><div class="rv" id="heroSpeed">—</div><div class="rs" id="heroKmh">—</div></div>
+      <div class="rbox hot"><div class="rk">Air at the nose</div><div class="rv" id="heroT">—</div><div class="rs" id="heroT2">—</div></div>
+      <div class="rbox"><div class="rk">Shock wave</div><div class="rv" id="heroShock">—</div><div class="rs" id="heroShock2">—</div></div>
+    </div>
+    <p class="vexp" id="heroExplain"></p>
+   </div>
+  </div>
+
+  <section class="sect" id="toolsSect">
+   <h3>What do you want to find out?</h3>
+   <p class="sub">Pick a question. Every tool explains its inputs and results in everyday words — and you can't break anything, so experiment.</p>
+   <div class="tgrid">
+    <button class="tcard c-isen" type="button" data-go="isen"><span class="ticon"><svg class="ic"><use href="#ic-isen"/></svg></span>
+      <span class="tq">How do pressure and temperature change as a gas speeds up?</span><span class="tname">Isentropic flow</span>
+      <span class="tdesc">Nozzles, diffusers, pitot tubes, compressed-air lines and gas pipelines.</span>
+      <span class="ttags"><i data-d="mec">Mechanical</i><i data-d="civ">Civil</i><i data-d="ene">Energy</i><i data-d="aer">Aerospace</i></span><span class="tgo">Open →</span></button>
+    <button class="tcard c-ns" type="button" data-go="ns"><span class="ticon"><svg class="ic"><use href="#ic-ns"/></svg></span>
+      <span class="tq">What happens inside a shock wave?</span><span class="tname">Normal shock</span>
+      <span class="tdesc">Sonic booms, blast waves and supersonic inlets — the sudden jump in pressure and temperature.</span>
+      <span class="ttags"><i data-d="civ">Civil · blast</i><i data-d="aer">Aerospace</i><i>Physics</i></span><span class="tgo">Open →</span></button>
+    <button class="tcard c-obl" type="button" data-go="obl"><span class="ticon"><svg class="ic"><use href="#ic-obl"/></svg></span>
+      <span class="tq">Supersonic air hits a ramp — at what angle does the shock form?</span><span class="tname">Oblique shock</span>
+      <span class="tdesc">Inlet ramps, wings and fins, and blast waves reflecting off walls.</span>
+      <span class="ttags"><i data-d="aer">Aerospace</i><i data-d="civ">Civil</i><i data-d="mec">Mechanical</i></span><span class="tgo">Open →</span></button>
+    <button class="tcard c-cone" type="button" data-go="cone"><span class="ticon"><svg class="ic"><use href="#ic-cone"/></svg></span>
+      <span class="tq">What does supersonic flow do around a pointed nose?</span><span class="tname">Cone flow · Taylor–Maccoll</span>
+      <span class="tdesc">Rocket and missile noses, bullet tips and conical inlet spikes.</span>
+      <span class="ttags"><i data-d="aer">Aerospace</i><i>Defence</i></span><span class="tgo">Open →</span></button>
+    <button class="tcard c-pm" type="button" data-go="pm"><span class="ticon"><svg class="ic"><use href="#ic-pm"/></svg></span>
+      <span class="tq">What happens when fast air turns a corner?</span><span class="tname">Expansion fan · Prandtl–Meyer</span>
+      <span class="tdesc">Flow around corners and nozzle exhaust plumes — it speeds up and cools down.</span>
+      <span class="ttags"><i data-d="aer">Aerospace</i><i data-d="mec">Mechanical</i></span><span class="tgo">Open →</span></button>
+    <button class="tcard c-aero" type="button" data-go="aero"><span class="ticon"><svg class="ic"><use href="#ic-aero"/></svg></span>
+      <span class="tq">How hot does a re-entering spacecraft get?</span><span class="tname">Aerothermo · re-entry heating</span>
+      <span class="tdesc">Real-gas chemistry, nose heat flux and shock stand-off — five fidelity levels plus nonequilibrium.</span>
+      <span class="ttags"><i data-d="aer">Aerospace</i><i>Materials</i><i>Research</i></span><span class="tgo">Open →</span></button>
+    <button class="tcard c-stube" type="button" data-go="stube"><span class="ticon"><svg class="ic"><use href="#ic-stube"/></svg></span>
+      <span class="tq">How do labs make shock waves on demand?</span><span class="tname">Shock tube · tunnel</span>
+      <span class="tdesc">Laboratory shock waves, blast testing of structures and high-temperature chemistry.</span>
+      <span class="ttags"><i data-d="civ">Civil</i><i data-d="chm">Chemical</i><i data-d="aer">Aerospace</i></span><span class="tgo">Open →</span></button>
+    <button class="tcard c-atm" type="button" data-go="atm"><span class="ticon"><svg class="ic"><use href="#ic-atm"/></svg></span>
+      <span class="tq">What is the air like at a given altitude?</span><span class="tname">Standard atmosphere</span>
+      <span class="tdesc">Temperature, pressure and density at any height — plus wind pressure on structures.</span>
+      <span class="ttags"><i data-d="civ">Civil</i><i>Aviation</i><i>Environment</i></span><span class="tgo">Open →</span></button>
+    <button class="tcard c-traj" type="button" data-go="traj"><span class="ticon"><svg class="ic"><use href="#ic-traj"/></svg></span>
+      <span class="tq">How does heating change along a flight path?</span><span class="tname">Trajectory sweep</span>
+      <span class="tdesc">Plot nose temperature, heat flux and shock stand-off against speed or altitude.</span>
+      <span class="ttags"><i data-d="aer">Aerospace</i><i>Research</i></span><span class="tgo">Open →</span></button>
+   </div>
+  </section>
+
+  <section class="sect">
+   <h3>Three ideas behind every tab</h3>
+   <p class="sub">Get these and the rest of the calculator reads like plain English.</p>
+   <div class="ideas">
+     <div class="idea"><div class="inum">1</div><h4>Mach number = speed ÷ speed of sound</h4>
+       <p>Sound travels at about 340 m/s near the ground. <b>M &lt; 1</b> subsonic · <b>M &gt; 1</b> supersonic · <b>M &gt; 5</b> hypersonic.
+       Below about M 0.3 air behaves like water (incompressible) — the world most civil and hydraulic formulas live in.</p></div>
+     <div class="idea"><div class="inum">2</div><h4>Stopping fast air heats it up</h4>
+       <p>Kinetic energy turns back into heat. Air at 15 °C moving at Mach 2 reaches about <b>245 °C</b> when brought to rest;
+       at Mach 7, about <b>2,840 °C</b> (ideal gas). That's why spacecraft need heat shields.</p></div>
+     <div class="idea"><div class="inum">3</div><h4>Shock waves are sudden jumps</h4>
+       <p>When air can't get out of the way in time, its pressure, temperature and density jump across a layer thinner than a hair.
+       A sonic boom and an explosion's blast wave are both shock waves.</p></div>
+   </div>
+  </section>
+
+  <section class="sect">
+   <h3>Not an aerospace engineer? You'll still use this.</h3>
+   <p class="sub">Compressible flow shows up wherever gas moves fast or pressure changes suddenly.</p>
+   <div class="disc">
+     <div class="dcard d-civil"><h4>🏗️ Civil &amp; structural</h4><p>Blast waves on buildings, wind pressure on towers and bridges, tunnel and metro ventilation, high-pressure gas networks.</p></div>
+     <div class="dcard d-mech"><h4>⚙️ Mechanical &amp; energy</h4><p>Nozzles, turbines, compressors, steam and gas lines, safety and relief valves, rocket and jet engines.</p></div>
+     <div class="dcard d-chem"><h4>🧪 Chemical &amp; process</h4><p>Choked flow through valves and orifices, high-temperature chemistry in shock tubes, combustion and plasma.</p></div>
+     <div class="dcard d-aero"><h4>🚀 Aerospace &amp; physics</h4><p>Supersonic inlets, scramjets, re-entry heating and sonic booms — plus a visual way to teach compressible flow.</p></div>
+   </div>
+  </section>
+ </div>
+</section>
+
 <!-- ===================== TAB: AEROTHERMO ===================== -->
 <section id="tab-aero" class="tabpanel">
+<div class="aerohead">
+  <h2 class="c-aero"><span class="hic"><svg class="ic"><use href="#ic-aero"/></svg></span>Aerothermodynamics — how hot does the nose get?</h2>
+  <p class="tsub">At hypersonic speed the air in front of a vehicle is squeezed so hard that it reaches thousands of degrees. Set a speed and an altitude, press <b>Compute</b>, and five gas models — from the simple textbook ideal gas to air whose molecules break apart — are compared side by side: temperature, pressure, heat flux, shock stand-off and nonequilibrium chemistry.</p>
+</div>
 <div class="wrap">
   <!-- ============ CONTROLS ============ -->
   <div class="controls">
@@ -229,11 +584,11 @@
 
     <h2>Models to compute</h2>
     <div class="checks" id="models">
-      <label class="chk"><input type="checkbox" value="ideal" checked><span class="sw" style="background:#9aa7bd"></span>Ideal gas (γ=1.4 const Cp)</label>
-      <label class="chk"><input type="checkbox" value="real" checked><span class="sw" style="background:#7bdff2"></span>Real gas (thermally perfect)</label>
-      <label class="chk"><input type="checkbox" value="s3" checked><span class="sw" style="background:#43d9a3"></span>3-species (O₂,O,N₂)</label>
-      <label class="chk"><input type="checkbox" value="s4" checked><span class="sw" style="background:#ffd166"></span>4-species (+N)</label>
-      <label class="chk"><input type="checkbox" value="s5" checked><span class="sw" style="background:#ff7849"></span>5-species (+NO)</label>
+      <label class="chk"><input type="checkbox" value="ideal" checked><span class="sw" style="background:#d7263d"></span>Ideal gas (γ=1.4 const Cp)</label>
+      <label class="chk"><input type="checkbox" value="real" checked><span class="sw" style="background:#e8590c"></span>Real gas (thermally perfect)</label>
+      <label class="chk"><input type="checkbox" value="s3" checked><span class="sw" style="background:#b07a00"></span>3-species (O₂,O,N₂)</label>
+      <label class="chk"><input type="checkbox" value="s4" checked><span class="sw" style="background:#0f8a7e"></span>4-species (+N)</label>
+      <label class="chk"><input type="checkbox" value="s5" checked><span class="sw" style="background:#2e5eaa"></span>5-species (+NO)</label>
     </div>
     <details class="about"><summary>ℹ️ About these models — the fidelity ladder</summary>
       <p><b>What it is —</b> A ladder of increasing physical fidelity for air behind a hypersonic shock. Each rung adds one effect, so the difference between two rungs isolates that effect: ideal→real = molecular vibration; real→3-species = O₂ dissociation; 3→4 = N₂ dissociation; 4→5 = NO / Zeldovich chemistry.</p>
@@ -251,7 +606,7 @@
     </div>
 
     <button class="btn" id="run">Compute ▸</button>
-    <div class="hint" id="loadBtn" style="margin-top:8px">Tip: defaults reproduce your M∞≈15, 50 km thesis case.</div>
+    <div class="hint" id="loadBtn" style="margin-top:8px">Tip: the defaults (M∞ = 15 at 50 km, 25 mm nose) are a typical hypersonic test case — change anything and press Compute (or Enter).</div>
   </div>
 
   <!-- ============ RESULTS ============ -->
@@ -264,9 +619,10 @@
 </section><!-- /tab-aero -->
 
 <!-- ===================== TAB: ISENTROPIC ===================== -->
-<section id="tab-isen" class="tabpanel active">
+<section id="tab-isen" class="tabpanel">
  <div class="tool">
-  <h2>Isentropic flow relations</h2>
+  <h2 class="c-isen"><span class="hic"><svg class="ic"><use href="#ic-isen"/></svg></span>Isentropic flow relations</h2>
+  <p class="tsub">How a gas's pressure, temperature and density change when it speeds up or slows down smoothly — through a nozzle, a pipe, a diffuser or a pitot tube. Type any one number and every other quantity follows.</p>
   <div class="inrow">
     <div class="field"><label>Solve from</label>
       <select id="isen-var">
@@ -294,7 +650,8 @@
 <!-- ===================== TAB: NORMAL SHOCK ===================== -->
 <section id="tab-ns" class="tabpanel">
  <div class="tool">
-  <h2>Normal shock relations</h2>
+  <h2 class="c-ns"><span class="hic"><svg class="ic"><use href="#ic-ns"/></svg></span>Normal shock relations</h2>
+  <p class="tsub">A shock wave standing straight across a supersonic flow: the air slows down abruptly while its pressure, temperature and density jump — inside a layer thinner than a human hair. Sonic booms, blast waves and engine inlets all work this way.</p>
   <div class="inrow">
     <div class="field"><label>Solve from</label>
       <select id="ns-var">
@@ -320,7 +677,8 @@
 <!-- ===================== TAB: OBLIQUE SHOCK ===================== -->
 <section id="tab-obl" class="tabpanel">
  <div class="tool">
-  <h2>Oblique shock — wedge / compression ramp</h2>
+  <h2 class="c-obl"><span class="hic"><svg class="ic"><use href="#ic-obl"/></svg></span>Oblique shock — wedge / compression ramp</h2>
+  <p class="tsub">When supersonic air meets a ramp or wedge it is turned through an angled shock wave. Find the shock angle, how strongly the air is compressed, and the largest turn before the shock pops off the nose.</p>
   <div class="inrow">
     <div class="field sm"><label>Upstream Mach M₁</label><input id="obl-M" type="number" step="0.1" value="3"></div>
     <div class="field"><label>Given</label>
@@ -352,7 +710,8 @@
 <!-- ===================== TAB: CONE ===================== -->
 <section id="tab-cone" class="tabpanel">
  <div class="tool">
-  <h2>Conical shock — Taylor–Maccoll (perfect gas)</h2>
+  <h2 class="c-cone"><span class="hic"><svg class="ic"><use href="#ic-cone"/></svg></span>Conical shock — Taylor–Maccoll (perfect gas)</h2>
+  <p class="tsub">Supersonic flow over a pointed cone — a rocket nose, a missile or a bullet tip. Find where the shock sits and how much pressure the cone surface feels.</p>
   <div class="inrow">
     <div class="field sm"><label>Upstream Mach M₁</label><input id="cone-M" type="number" step="0.1" value="3"></div>
     <div class="field sm"><label>Cone half-angle σ (°)</label><input id="cone-s" type="number" step="0.5" value="15"></div>
@@ -370,7 +729,8 @@
 <!-- ===================== TAB: PRANDTL-MEYER ===================== -->
 <section id="tab-pm" class="tabpanel">
  <div class="tool">
-  <h2>Prandtl–Meyer expansion fan</h2>
+  <h2 class="c-pm"><span class="hic"><svg class="ic"><use href="#ic-pm"/></svg></span>Prandtl–Meyer expansion fan</h2>
+  <p class="tsub">The opposite of a shock: when supersonic air turns away around a corner it smoothly speeds up, and its pressure and temperature drop — with no energy lost.</p>
   <div class="inrow">
     <div class="field sm"><label>Upstream Mach M₁</label><input id="pm-M" type="number" step="0.1" value="2"></div>
     <div class="field sm"><label>Expansion turn Δθ (°)</label><input id="pm-d" type="number" step="0.5" value="10"></div>
@@ -388,7 +748,8 @@
 <!-- ===================== TAB: ATMOSPHERE ===================== -->
 <section id="tab-atm" class="tabpanel">
  <div class="tool">
-  <h2>US Standard Atmosphere 1976</h2>
+  <h2 class="c-atm"><span class="hic"><svg class="ic"><use href="#ic-atm"/></svg></span>US Standard Atmosphere 1976</h2>
+  <p class="tsub">Temperature, pressure, density and speed of sound at any height up to 86 km — or work backwards from a measured pressure, density or temperature to the altitude. Enter a wind speed to get the wind pressure on a structure.</p>
   <div class="inrow">
     <div class="field"><label>Solve from</label>
       <select id="atm-mode">
@@ -398,6 +759,7 @@
         <option value="dens">Density → altitude</option>
       </select></div>
     <div class="field sm"><label id="atm-zlab">Geometric altitude (km)</label><input id="atm-z" type="number" step="1" value="30"></div>
+    <div class="field sm"><label id="atm-wlab">Wind speed (m/s)</label><input id="atm-wind" type="number" step="1" min="0" value="40"></div>
   </div>
   <div class="note">Valid to 86 km geometric. Go either way: altitude → properties, or enter a pressure / density / temperature to recover the altitude.</div>
   <details class="about"><summary>ℹ️ About this model — what it is · how it's used · where</summary>
@@ -412,7 +774,8 @@
 <!-- ===================== TAB: TRAJECTORY ===================== -->
 <section id="tab-traj" class="tabpanel">
  <div class="tool">
-  <h2>Trajectory / parameter sweep — stagnation heating &amp; shock</h2>
+  <h2 class="c-traj"><span class="hic"><svg class="ic"><use href="#ic-traj"/></svg></span>Trajectory / parameter sweep — stagnation heating &amp; shock</h2>
+  <p class="tsub">Run the heating calculation across a range of speeds, Mach numbers or altitudes and see, as curves, how nose temperature, heat flux and shock stand-off change along a flight path.</p>
   <div class="inrow">
     <div class="field"><label>Sweep variable</label>
       <select id="tr-var"><option value="V">Velocity</option><option value="M">Mach number</option><option value="alt">Altitude</option></select></div>
@@ -437,7 +800,8 @@
 <!-- ===================== TAB: SHOCK TUBE / TUNNEL ===================== -->
 <section id="tab-stube" class="tabpanel">
  <div class="tool" style="max-width:1180px">
-  <h2>Shock tube / reflected-shock tunnel</h2>
+  <h2 class="c-stube"><span class="hic"><svg class="ic"><use href="#ic-stube"/></svg></span>Shock tube / reflected-shock tunnel</h2>
+  <p class="tsub">High-pressure gas on one side of a thin diaphragm, low-pressure gas on the other. Burst it and a shock wave races down the tube — the laboratory's way of making shock waves, blast loads and very hot gas on demand. Every wave is drawn on an x–t diagram.</p>
   <div class="inrow">
     <div class="field"><label>Driver gas (high p)</label>
       <select id="st-dg">
@@ -530,13 +894,27 @@
  </div>
 </section>
 
-<div class="foot">
-  Perfect-gas tools (isentropic, normal/oblique/conical shock, Prandtl–Meyer): Anderson, <i>Modern Compressible Flow</i>; NACA Report 1135.
-  Real-gas aerothermo: thermally-perfect air + equilibrium air via statistical-thermodynamic dissociation constants (Vincenti &amp; Kruger;
-  Anderson, <i>Hypersonic &amp; High-Temperature Gas Dynamics</i>). Heat flux: Fay–Riddell (1958) &amp; Sutton–Graves (NASA TR R-376).
-  Stand-off: Billig (1967). Atmosphere: US Standard 1976.
-  <br>Open for any compressible-flow or aerothermodynamics study — for verification &amp; education, not a substitute for converged CFD.
-</div>
+<footer class="foot">
+ <div class="fin">
+  <div><b>AeroCalc</b> — a free, open-source compressible-flow &amp; aerothermodynamics calculator for students, engineers and curious minds.</div>
+  <div>Perfect-gas tools: Anderson, <i>Modern Compressible Flow</i>; NACA Report 1135. Real-gas aerothermo: thermally-perfect and equilibrium air from
+    statistical thermodynamics (Vincenti &amp; Kruger; Anderson, <i>Hypersonic &amp; High-Temperature Gas Dynamics</i>), finite-rate Park chemistry and the
+    Park two-temperature model. Heat flux: Fay–Riddell (1958) &amp; Sutton–Graves (NASA TR R-376). Stand-off: Billig (1967). Atmosphere: US Standard 1976.</div>
+  <div>For learning and verification — not a substitute for converged CFD or your design code. ·
+    <a href="https://github.com/ShoiabGoku/Aerothermodynamic-calculator" target="_blank" rel="noopener">Source on GitHub</a> (MIT licence)</div>
+ </div>
+</footer>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="gloss" aria-label="Basics and glossary" aria-hidden="true">
+  <div class="dhead">
+    <div><div class="dtitle">Basics &amp; glossary</div>
+      <div class="dsub">Every term in plain words. Tip: tap any dotted-underlined label in a result to jump straight to it.</div></div>
+    <button class="dclose" id="glossClose" type="button" aria-label="Close glossary">✕</button>
+  </div>
+  <input class="dsearch" id="glossSearch" type="search" placeholder="Search terms… e.g. shock, Mach, enthalpy" aria-label="Search the glossary">
+  <div class="dlist" id="glossList"></div>
+</aside>
 
 <script>
 "use strict";
@@ -937,8 +1315,8 @@ function readInputs(){
   };
 }
 
-const MODELS={ideal:{n:"Ideal gas",c:"#9aa7bd"},real:{n:"Real gas",c:"#7bdff2"},
-  s3:{n:"3-species",c:"#43d9a3"},s4:{n:"4-species",c:"#ffd166"},s5:{n:"5-species",c:"#ff7849"}};
+const MODELS={ideal:{n:"Ideal gas",c:"#d7263d"},real:{n:"Real gas",c:"#e8590c"},
+  s3:{n:"3-species",c:"#b07a00"},s4:{n:"4-species",c:"#0f8a7e"},s5:{n:"5-species",c:"#2e5eaa"}};
 const MODELDESC={
   ideal:"Air as one inert perfect gas (constant Cp, γ=1.4). The simplest baseline — ignores vibration and chemistry, so it over-predicts temperature. Good for M≲5 where air stays cool; used as the control.",
   real:"Chemically-frozen air, but Cp now grows with temperature as molecular vibration switches on (thermally perfect). Captures the caloric real-gas effect (γ falls, T drops) with no chemistry — valid roughly 800–2500 K behind the shock.",
@@ -956,17 +1334,17 @@ function render(inp,fs,R){
   const order=["ideal","real","s3","s4","s5"].filter(m=>R[m]);
   const el=document.getElementById('out');
   const regClass={Subsonic:0,Transonic:1,Supersonic:2,Hypersonic:3}[fs.regime];
-  const regColors=["#43d9a3","#ffd166","#3da9fc","#ff7849"];
+  const regColors=["#dcf5e3","#fff1c7","#dbeafe","#fde2ec"], regInk=["#1f6f33","#8a5a00","#1d4fa0","#b02a5b"];
 
   let html=`
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <h3>Freestream summary</h3>
-      <span class="pill" style="background:${regColors[regClass]};color:#06223a">${fs.regime} · M∞ = ${fmt(fs.M,2)}</span>
+      <span class="pill" style="background:${regColors[regClass]};color:${regInk[regClass]}">${fs.regime} · M∞ = ${fmt(fs.M,2)}</span>
     </div>
     <div class="regimebar">
       ${["Subsonic","Transonic","Supersonic","Hypersonic"].map((n,i)=>
-        `<div class="${i===regClass?'on':''}" style="${i===regClass?`background:${regColors[i]}`:''}">${n}</div>`).join("")}
+        `<div class="${i===regClass?'on':''}" style="${i===regClass?`background:${regColors[i]};color:${regInk[i]}`:''}">${n}</div>`).join("")}
     </div>
     <div class="grid" style="margin-top:12px">
       ${stat("Velocity V∞",fmt(fs.V,0),"m/s")}
@@ -985,6 +1363,9 @@ function render(inp,fs,R){
     html+=`<div class="warnbox">M∞ &lt; 1 — flow is ${fs.regime.toLowerCase()}, so there is no bow shock.
       Only isentropic stagnation conditions are shown; stand-off, post-shock state and shock-layer heating do not apply.</div>`;
   }
+
+  /* ---------- "how hot is it?" temperature ladder (plain-language view) ---------- */
+  try{ html+=thermalLadderCard(fs,R,order); }catch(e){ console.error('ladder:',e); }
 
   /* ---------- master comparison table ---------- */
   html+=`<div class="card"><h3>Model comparison ${fs.supersonic?"(across the normal bow shock)":"(isentropic)"}</h3>
@@ -1089,7 +1470,7 @@ function assumptionsHTML(){return `
       <li><b>Surface:</b> modified Newtonian Cp = Cp,max·cos²θ; local static T by isentropic expansion from stagnation.</li>
       <li><b>Nonequilibrium relaxation:</b> the finite-rate card integrates the Park R1–R5 mechanism (single T, backward rates from the equilibrium constant) behind a chemically-frozen shock along the post-shock streamline — the analytical counterpart of a Laminar Finite-Rate Fluent stagnation line. Frozen and equilibrium states bound the CFD; the relaxation length shows whether your shock layer is near-frozen, relaxing, or near-equilibrium (compare L₉₅ to the stand-off Δ).</li>
       <li><b>Validity range:</b> works subsonic→hypersonic. For M&lt;1 only isentropic stagnation is shown (no shock). Viscosity is Sutherland (under-predicts μ above ~2000 K). Single translational temperature (no T–T_v two-temperature nonequilibrium — that needs CFD/UDF).</li>
-      <li><b>Cross-check targets (M≈15, 50 km thesis case):</b> Sutton–Graves ≈ 4.4 MW/m²; stand-off vs Lobb; T₀ ideal ≈ 12 kK collapsing to ≈ 6 kK with chemistry.</li>
+      <li><b>Cross-check targets (M≈15, 50 km reference case):</b> Sutton–Graves ≈ 4.4 MW/m²; stand-off vs Lobb; T₀ ideal ≈ 12 kK collapsing to ≈ 6 kK with chemistry.</li>
     </ul>
   </details>`;
 }
@@ -1119,12 +1500,12 @@ document.getElementById('run').addEventListener('click',()=>{
   // phones: controls stack above the results, so jump to them after computing
   if(window.innerWidth<1000) setTimeout(()=>document.getElementById('out').scrollIntoView(),50);
 });
-document.addEventListener('keydown',e=>{ if(e.key==="Enter") computeAll(); });
+document.addEventListener('keydown',e=>{ if(e.key==="Enter" && activeTab==='aero' && !(e.target&&e.target.closest&&e.target.closest('#gloss'))) computeAll(); });
 // initial visibility: default atmosphere mode is "altitude" -> hide manual T,p
 document.getElementById('tField').style.display='none';
 document.getElementById('pField').style.display='none';
 updateAltReadout();
-computeAll();   // populate aerothermo tab
+// the Aerothermo tab is computed the first time it is opened (uiOnTab, end of script) — by then every engine table exists
 
 /* =========================================================================
    ============   TIER 1 + 2 : GENERAL COMPRESSIBLE-FLOW TOOLS   ===========
@@ -1272,15 +1653,15 @@ function svgPlot(series,opt){
   const X=v=>mL+(v-xmin)/(xmax-xmin)*(W-mL-mR), Y=v=>H-mB-(v-ymin)/(ymax-ymin)*(H-mT-mB);
   let g='';
   for(let i=0;i<=6;i++){ const v=xmin+(xmax-xmin)*i/6, x=X(v);
-    g+=`<line x1="${x.toFixed(1)}" y1="${mT}" x2="${x.toFixed(1)}" y2="${H-mB}" stroke="#1c2840"/>`;
+    g+=`<line x1="${x.toFixed(1)}" y1="${mT}" x2="${x.toFixed(1)}" y2="${H-mB}" stroke="#e8edf4"/>`;
     g+=`<text x="${x.toFixed(1)}" y="${H-mB+15}" font-size="10" text-anchor="middle">${(+v.toPrecision(3))}</text>`; }
   for(let i=0;i<=5;i++){ const v=ymin+(ymax-ymin)*i/5, y=Y(v);
-    g+=`<line x1="${mL}" y1="${y.toFixed(1)}" x2="${W-mR}" y2="${y.toFixed(1)}" stroke="#1c2840"/>`;
+    g+=`<line x1="${mL}" y1="${y.toFixed(1)}" x2="${W-mR}" y2="${y.toFixed(1)}" stroke="#e8edf4"/>`;
     g+=`<text x="${mL-6}" y="${(y+3).toFixed(1)}" font-size="10" text-anchor="end">${(+v.toPrecision(3))}</text>`; }
   series.forEach(s=>{ const pts=s.x.map((x,i)=>isFinite(x)&&isFinite(s.y[i])?`${X(x).toFixed(1)},${Y(s.y[i]).toFixed(1)}`:null).filter(Boolean).join(' ');
-    g+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2"${s.dash?' stroke-dasharray="6 4"':''}/>`; });
-  (opt.points||[]).forEach(p=>{ g+=`<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="4.5" fill="${p.color||'#fff'}" stroke="#06223a"/>`;
-    if(p.label) g+=`<text x="${(X(p.x)+8).toFixed(1)}" y="${(Y(p.y)-6).toFixed(1)}" font-size="10" fill="${p.color||'#fff'}">${p.label}</text>`; });
+    g+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round"${s.dash?' stroke-dasharray="6 4"':''}/>`; });
+  (opt.points||[]).forEach(p=>{ g+=`<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="5" fill="${p.color||'#0f1b2d'}" stroke="#fff" stroke-width="2"/>`;
+    if(p.label) g+=`<text x="${(X(p.x)+8).toFixed(1)}" y="${(Y(p.y)-6).toFixed(1)}" font-size="11" font-weight="700" fill="${p.color||'#0f1b2d'}">${p.label}</text>`; });
   g+=`<text x="${(mL+W-mR)/2}" y="${H-4}" font-size="11" text-anchor="middle">${opt.xlabel||''}</text>`;
   g+=`<text x="13" y="${(mT+H-mB)/2}" font-size="11" text-anchor="middle" transform="rotate(-90 13 ${(mT+H-mB)/2})">${opt.ylabel||''}</text>`;
   let lx=mL+8; series.filter(s=>s.label).forEach(s=>{ g+=`<rect x="${lx}" y="${mT+2}" width="13" height="3" fill="${s.color}"/><text x="${lx+17}" y="${mT+8}" font-size="10">${s.label}</text>`; lx+=s.label.length*6.5+34; });
@@ -1307,11 +1688,12 @@ function computeIsen(){
   const out=document.getElementById('out-isen');
   if(!(M>0)||isNaN(M)){ out.innerHTML=`<div class="warnbox">No valid solution for that input.</div>`; return; }
   const s=isen(M,g), reg=M<0.8?'Subsonic':M<1.2?'Transonic':M<5?'Supersonic':'Hypersonic';
-  out.innerHTML=card(`Result &nbsp;<span class="pill" style="background:#3da9fc;color:#06223a">M = ${fmt(M,4)} · ${reg}</span>`,
+  out.innerHTML=card(`Result &nbsp;<span class="pill" style="background:#e7f0fd;color:#1c6fd6">M = ${fmt(M,4)} · ${reg}</span>`,
     ftable([row('Mach number M',fmt(M,4)),row('T₀/T (temperature ratio)',fmt(s.T0T,4)),row('p₀/p',fmt(s.p0p,4)),
       row('ρ₀/ρ',fmt(s.r0r,4)),row('T/T₀',fmt(1/s.T0T,4)),row('p/p₀',fmt(1/s.p0p,4)),row('ρ/ρ₀',fmt(1/s.r0r,4)),
       row('Area ratio A/A*',fmt(s.AAs,4)),row('Mach angle μ',s.mu?fmt(s.mu,3):'—','°'),
       row('Prandtl–Meyer angle ν',s.nu?fmt(s.nu,3):'—','°')]))
+    +isenEveryday(M,s,g)
     +`<div class="note">γ = ${g}. T₀/p₀/ρ₀ are stagnation (total) values; multiply your static T, p, ρ by these to get totals.</div>`;
 }
 function computeNS(){
@@ -1319,11 +1701,12 @@ function computeNS(){
   const M1=nshock_fromVar(which,val,g), out=document.getElementById('out-ns');
   if(!(M1>=1)){ out.innerHTML=`<div class="warnbox">Upstream flow must be supersonic (M₁ ≥ 1). No solution.</div>`; return; }
   const n=nshock(M1,g);
-  out.innerHTML=card(`Result &nbsp;<span class="pill" style="background:#ff7849;color:#06223a">M₁ = ${fmt(M1,4)}</span>`,
+  out.innerHTML=card(`Result &nbsp;<span class="pill" style="background:#fdebf1;color:#d6336c">M₁ = ${fmt(M1,4)}</span>`,
     ftable([row('Upstream Mach M₁',fmt(M1,4)),row('Downstream Mach M₂',fmt(n.M2,4)),
       row('Static pressure ratio p₂/p₁',fmt(n.p2p1,4)),row('Density ratio ρ₂/ρ₁',fmt(n.r2r1,4)),
       row('Temperature ratio T₂/T₁',fmt(n.T2T1,4)),row('Total-pressure ratio p₀₂/p₀₁',fmt(n.p02p01,4)),
       row('Pitot ratio p₀₂/p₁',fmt(n.p02p01*isen(M1,g).p0p,4))]))
+    +nsEveryday(M1,n,g)
     +`<div class="note">γ = ${g}. Across a normal shock entropy rises, so p₀₂/p₀₁ &lt; 1.</div>`;
 }
 function computeObl(){
@@ -1347,8 +1730,8 @@ function computeObl(){
   if(r.detached){ out.innerHTML=`<div class="warnbox">Shock is <b>detached</b> — the requested deflection (${fmt(val,1)}°) exceeds θ_max ≈ ${fmt(r.theta_max,2)}° for M₁ = ${M1}. A bow shock forms (use the Aerothermo tab).</div>`; return; }
   // theta-beta-M curve (perfect gas reference)
   const xc=[],yc=[]; for(let b=Math.asin(1/M1)*180/Math.PI+0.01;b<90;b+=0.4){ const t=theta_beta(M1,b,g); if(t>=0){xc.push(t);yc.push(b);} }
-  const plot=svgPlot([{x:xc,y:yc,color:'#3da9fc',label:'β(θ), M₁='+M1}],
-    {xlabel:'flow deflection θ (°)',ylabel:'wave angle β (°)',points:[{x:r.theta,y:r.beta,color:'#ff7849',label:(strong?'strong':'weak')}]});
+  const plot=svgPlot([{x:xc,y:yc,color:'#6741d9',label:'β(θ), M₁='+M1}],
+    {xlabel:'flow deflection θ (°)',ylabel:'wave angle β (°)',points:[{x:r.theta,y:r.beta,color:'#d6336c',label:(strong?'strong':'weak')}]});
   const rows=[row('Wave angle β',fmt(r.beta,3),'°'),row('Flow deflection θ',fmt(r.theta,3),'°'),
       row('Normal-component M<sub>n1</sub>',fmt(r.Mn1,4)),row('Downstream Mach M₂',fmt(r.M2,4)),
       row('Pressure ratio p₂/p₁',gas==='pg'?fmt(r.p2p1,4):fmt(r.p2/(+document.getElementById('obl-p').value),3)),
@@ -1357,7 +1740,7 @@ function computeObl(){
       r.p02p01!=null?row('Total-pressure ratio p₀₂/p₀₁',fmt(r.p02p01,4)):''];
   let comp=''; if(r.comp){ comp=`<div class="note">Equilibrium post-shock composition (mole %): `+
       ['O2','N2','NO','O','N'].map(s=>`${s.replace('2','₂')} ${(100*(r.comp.x[s]||0)).toFixed(2)}`).join(' · ')+`</div>`; }
-  out.innerHTML=card(`Oblique shock &nbsp;<span class="pill" style="background:#ffd166;color:#06223a">${strong?'strong':'weak'} solution</span>`,
+  out.innerHTML=card(`Oblique shock &nbsp;<span class="pill" style="background:#f1ecfd;color:#6741d9">${strong?'strong':'weak'} solution</span>`,
     ftable(rows)+comp)+card('θ–β–M diagram',plot)
     +`<div class="note">θ_max for M₁ = ${M1}: ${r.theta_max?fmt(r.theta_max,2)+'°':'—'}. Tangential velocity is preserved; M₂ uses the full velocity.</div>`;
 }
@@ -1366,7 +1749,7 @@ function computeCone(){
   if(!(M1>1)){ out.innerHTML=`<div class="warnbox">Need supersonic M₁ &gt; 1.</div>`; return; }
   const r=cone_solve(M1,sigma,g);
   if(r.detached){ out.innerHTML=`<div class="warnbox">No attached conical shock for σ = ${sigma}° at M₁ = ${M1} (cone angle too large → detached bow shock).</div>`; return; }
-  out.innerHTML=card(`Conical shock &nbsp;<span class="pill" style="background:#43d9a3;color:#06223a">σ = ${sigma}°</span>`,
+  out.innerHTML=card(`Conical shock &nbsp;<span class="pill" style="background:#e3f7f9;color:#0c8599">σ = ${sigma}°</span>`,
     ftable([row('Cone half-angle σ',fmt(sigma,2),'°'),row('Shock wave angle β',fmt(r.beta,3),'°'),
       row('Mach just behind shock',fmt(r.M2,4)),row('Surface Mach M_c',fmt(r.Msurf,4)),
       row('Surface pressure ratio p_c/p∞',fmt(r.psurf,4)),row('Surface pressure coeff. C_p',fmt(r.Cp,4))]))
@@ -1376,7 +1759,7 @@ function computePM(){
   const g=GAMMA(), M1=+document.getElementById('pm-M').value, d=+document.getElementById('pm-d').value, out=document.getElementById('out-pm');
   if(!(M1>=1)){ out.innerHTML=`<div class="warnbox">Prandtl–Meyer expansion needs M₁ ≥ 1.</div>`; return; }
   const r=pm_solve(M1,d,g);
-  out.innerHTML=card(`Expansion &nbsp;<span class="pill" style="background:#7bdff2;color:#06223a">Δθ = ${d}°</span>`,
+  out.innerHTML=card(`Expansion &nbsp;<span class="pill" style="background:#e3f6fb;color:#1098ad">Δθ = ${d}°</span>`,
     ftable([row('Upstream Mach M₁',fmt(M1,4)),row('Downstream Mach M₂',fmt(r.M2,4)),
       row('ν(M₁)',fmt(r.nu1,3),'°'),row('ν(M₂)',fmt(r.nu2,3),'°'),
       row('Mach angle μ₁ → μ₂',fmt(r.mu1,2)+' → '+fmt(r.mu2,2),'°'),
@@ -1421,7 +1804,7 @@ function computeAtm(){
   if(mode==='alt'){
     const z=U.from('alt',raw);
     out.innerHTML=card(`Atmosphere at ${fmt(U.to('alt',z),2)} ${U.lab('alt')}`,atmAt(z))
-      +`<div class="note">US Standard Atmosphere 1976 (valid to 86 km). Speed of sound and viscosity assume air, γ=1.4.</div>`;
+      +`<div class="note">US Standard Atmosphere 1976 (valid to 86 km). Speed of sound and viscosity assume air, γ=1.4.</div>`+windCard(z);
     return;
   }
   if(mode==='pres'||mode==='dens'){
@@ -1430,8 +1813,8 @@ function computeAtm(){
     const z=atmInvertMono(target,which);
     if(z==null){ out.innerHTML=`<div class="warnbox">That ${mode==='pres'?'pressure':'density'} is outside the model's 0–86 km range.</div>`; return; }
     out.innerHTML=card(`Altitude for ${mode==='pres'?'p':'ρ'} = ${fmt(raw,4)} ${mode==='pres'?U.lab('pres'):U.lab('rho')} `
-      +`&nbsp;<span class="pill" style="background:#3da9fc;color:#06223a">z = ${fmt(U.to('alt',z),3)} ${U.lab('alt')}</span>`, atmAt(z))
-      +`<div class="note">${mode==='pres'?'Pressure':'Density'} decreases monotonically with altitude, so this altitude is unique — this is how a pressure altimeter works.</div>`;
+      +`&nbsp;<span class="pill" style="background:#e9f7ec;color:#2b8a3e">z = ${fmt(U.to('alt',z),3)} ${U.lab('alt')}</span>`, atmAt(z))
+      +`<div class="note">${mode==='pres'?'Pressure':'Density'} decreases monotonically with altitude, so this altitude is unique — this is how a pressure altimeter works.</div>`+windCard(z);
     return;
   }
   // temperature (non-monotonic)
@@ -1439,11 +1822,12 @@ function computeAtm(){
   const {sols,plateaus}=atmInvertT(Ttar);
   if(!sols.length && !plateaus.length){
     out.innerHTML=`<div class="warnbox">Temperature ${fmt(raw,1)} ${U.lab('temp')} does not occur between 0 and 86 km (the model spans ≈ 187–288 K).</div>`; return; }
-  let html=`<div class="warnbox" style="border-color:#3da9fc;background:#0c1a28;color:#bfe6f2">Atmospheric temperature is <b>not monotonic</b>, so a given T can occur at more than one altitude${plateaus.length?', and across whole isothermal layers':''}. All matches:</div>`;
+  let html=`<div class="infobox">Atmospheric temperature is <b>not monotonic</b>, so a given T can occur at more than one altitude${plateaus.length?', and across whole isothermal layers':''}. All matches:</div>`;
   if(plateaus.length) html+=card('Isothermal-layer match (T constant over a band)',
     ftable(plateaus.map(b=>row('Altitude band', fmt(U.to('alt',b[0]),2)+' – '+fmt(U.to('alt',b[1]),2), U.lab('alt')))));
   sols.forEach((z,i)=>{ html+=card(`Match ${i+1}: z = ${fmt(U.to('alt',z),3)} ${U.lab('alt')}`, atmAt(z)); });
   html+=`<div class="note">US Standard Atmosphere 1976. Pressure/density modes give a single altitude; temperature can be multi-valued as shown.</div>`;
+  html+=windCard(sols.length?sols[0]:plateaus[0][0]);
   out.innerHTML=html;
 }
 function refreshTrajLabels(){
@@ -1472,9 +1856,9 @@ function computeTraj(){
   }
   const xl={V:'velocity ('+U.lab('vel')+')',M:'Mach number',alt:'altitude ('+U.lab('alt')+')'}[sv];
   out.innerHTML=
-    card('Stagnation temperature T₀',svgPlot([{x:xs,y:T0,color:'#ff7849'}],{xlabel:xl,ylabel:'T₀ ('+U.lab('temp')+')',ymin:0}))
-   +card('Stagnation heat flux',svgPlot([{x:xs,y:qF,color:'#3da9fc',label:'Fay–Riddell'},{x:xs,y:qS,color:'#43d9a3',label:'Sutton–Graves'}],{xlabel:xl,ylabel:'q ('+U.lab('q')+')',ymin:0}))
-   +card('Shock stand-off Δ',svgPlot([{x:xs,y:so,color:'#ffd166'}],{xlabel:xl,ylabel:'Δ ('+U.lab('len')+')',ymin:0}))
+    card('Stagnation temperature T₀',svgPlot([{x:xs,y:T0,color:'#e8590c'}],{xlabel:xl,ylabel:'T₀ ('+U.lab('temp')+')',ymin:0}))
+   +card('Stagnation heat flux',svgPlot([{x:xs,y:qF,color:'#d6336c',label:'Fay–Riddell'},{x:xs,y:qS,color:'#1c6fd6',label:'Sutton–Graves'}],{xlabel:xl,ylabel:'q ('+U.lab('q')+')',ymin:0}))
+   +card('Shock stand-off Δ',svgPlot([{x:xs,y:so,color:'#0f8a7e'}],{xlabel:xl,ylabel:'Δ ('+U.lab('len')+')',ymin:0}))
    +`<div class="note">Gas model: ${({ideal:'ideal',real:'real',s5:'5-species equilibrium'})[gas]}. Sphere, Rₙ = ${fmt(U.to('len',Rn*1000),1)} ${U.lab('len')}, cold wall 300 K, non-catalytic.</div>`;
 }
 function fsFrom(T,p,V){
@@ -1549,31 +1933,34 @@ function stubeDiagram(S){
   const W=720,H=420,mL=54,mR=14,mT=14,mB=42, xmin=-S.L4, xmax=S.L1, tmax=S.t_max;
   const X=x=>mL+(x-xmin)/(xmax-xmin)*(W-mL-mR), Y=t=>H-mB-(t/tmax)*(H-mT-mB);
   const L=(x1,t1,x2,t2,c,w,d)=>`<line x1="${X(x1).toFixed(1)}" y1="${Y(t1).toFixed(1)}" x2="${X(x2).toFixed(1)}" y2="${Y(t2).toFixed(1)}" stroke="${c}" stroke-width="${w||2}"${d?' stroke-dasharray="5 4"':''}/>`;
-  const T=(x,t,s,c)=>`<text x="${X(x).toFixed(1)}" y="${Y(t).toFixed(1)}" font-size="13" font-weight="700" fill="${c||'#e6edf6'}" text-anchor="middle">${s}</text>`;
-  let g=`<rect x="${mL}" y="${mT}" width="${W-mL-mR}" height="${H-mT-mB}" fill="#0e1420" stroke="#223049"/>`;
+  const T=(x,t,s,c)=>`<text x="${X(x).toFixed(1)}" y="${Y(t).toFixed(1)}" font-size="13" font-weight="700" fill="${c||'#0f1b2d'}" text-anchor="middle">${s}</text>`;
+  let g=`<rect x="${mL}" y="${mT}" width="${W-mL-mR}" height="${H-mT-mB}" fill="#fbfdff" stroke="#d3dce8"/>`;
   for(let i=0;i<=5;i++){ const x=xmin+(xmax-xmin)*i/5, px=X(x);
-    g+=`<line x1="${px.toFixed(1)}" y1="${H-mB}" x2="${px.toFixed(1)}" y2="${H-mB+4}" stroke="#8aa0bd"/><text x="${px.toFixed(1)}" y="${H-mB+16}" font-size="10" fill="#8aa0bd" text-anchor="middle">${(+x.toFixed(2))}</text>`; }
+    g+=`<line x1="${px.toFixed(1)}" y1="${H-mB}" x2="${px.toFixed(1)}" y2="${H-mB+4}" stroke="#a3b1c2"/><text x="${px.toFixed(1)}" y="${H-mB+16}" font-size="10" fill="#5b6a80" text-anchor="middle">${(+x.toFixed(2))}</text>`; }
   for(let i=0;i<=5;i++){ const t=tmax*i/5, py=Y(t);
-    g+=`<line x1="${mL-4}" y1="${py.toFixed(1)}" x2="${mL}" y2="${py.toFixed(1)}" stroke="#8aa0bd"/><text x="${mL-6}" y="${(py+3).toFixed(1)}" font-size="10" fill="#8aa0bd" text-anchor="end">${(t*1000).toFixed(2)}</text>`; }
-  g+=L(0,0,0,tmax,'#3a4a63',1,true);                         // diaphragm
-  g+=L(S.L1,0,S.L1,tmax,'#9aa7bd',3);                        // end wall
-  g+=L(-S.L4,0,-S.L4,tmax,'#6b7891',2);                      // driver back wall
-  g+=L(0,0,S.L1,S.t_s,'#ff5d73',2.6);                        // incident shock
+    g+=`<line x1="${mL-4}" y1="${py.toFixed(1)}" x2="${mL}" y2="${py.toFixed(1)}" stroke="#a3b1c2"/><text x="${mL-6}" y="${(py+3).toFixed(1)}" font-size="10" fill="#5b6a80" text-anchor="end">${(t*1000).toFixed(2)}</text>`; }
+  g+=L(0,0,0,tmax,'#94a3b8',1,true);                         // diaphragm
+  g+=L(S.L1,0,S.L1,tmax,'#334155',3);                        // end wall
+  g+=L(-S.L4,0,-S.L4,tmax,'#64748b',2);                      // driver back wall
+  g+=L(0,0,S.L1,S.t_s,'#d6336c',2.6);                        // incident shock
   const t_meet=(S.L1+S.Ur*S.t_s)/(S.u2+S.Ur), t_r=Math.min(tmax,t_meet), x_r=S.L1-S.Ur*(t_r-S.t_s);
-  g+=L(S.L1,S.t_s,x_r,t_r,'#ff7849',2.6);                    // reflected shock
+  g+=L(S.L1,S.t_s,x_r,t_r,'#e8590c',2.6);                    // reflected shock
   const t_c=Math.min(tmax,t_meet);
-  g+=L(0,0,S.u2*t_c,t_c,'#cfd8e6',1.7,true);                 // contact surface
+  g+=L(0,0,S.u2*t_c,t_c,'#475569',1.7,true);                 // contact surface
   const nray=6;                                              // expansion fan
   for(let i=0;i<=nray;i++){ const sp=S.fanHead+(S.fanTail-S.fanHead)*i/nray;
     let tt=tmax,xx=sp*tmax; if(xx<-S.L4){ tt=(-S.L4)/sp; xx=-S.L4; }
-    g+=L(0,0,xx,tt,(i===0||i===nray)?'#7bdff2':'#356f86',(i===0||i===nray)?2.2:1); }
-  g+=T(S.L1*0.72,S.t_s*0.3,'1','#8aa0bd')+T(S.L1*0.42,S.t_s*0.9,'2','#ffd9c8')
-    +T(Math.max(-S.L4*0.15,S.u2*tmax*0.35),tmax*0.6,'3','#bfe6f2')+T(-S.L4*0.55,tmax*0.5,'4','#8aa0bd')
-    +T(S.L1*0.9,(S.t_s+tmax)/2,'5','#ffd166');
-  const lg=[['#ff5d73','incident shock'],['#ff7849','reflected shock'],['#cfd8e6','contact surface'],['#7bdff2','expansion fan']];
-  let lx=mL+6; lg.forEach(l=>{ g+=`<rect x="${lx}" y="${mT+4}" width="12" height="3" fill="${l[0]}"/><text x="${lx+15}" y="${mT+9}" font-size="10" fill="#8aa0bd">${l[1]}</text>`; lx+=l[1].length*6+30; });
-  g+=`<text x="${(mL+W-mR)/2}" y="${H-5}" font-size="11" fill="#8aa0bd" text-anchor="middle">position x (m)  —  driver (x&lt;0) · diaphragm at 0 · end wall at x=L₁</text>`;
-  g+=`<text x="13" y="${(mT+H-mB)/2}" font-size="11" fill="#8aa0bd" text-anchor="middle" transform="rotate(-90 13 ${(mT+H-mB)/2})">time t (ms)</text>`;
+    g+=L(0,0,xx,tt,(i===0||i===nray)?'#1c6fd6':'#9cc2f0',(i===0||i===nray)?2.2:1); }
+  { const t2=S.t_s*0.62, t3=Math.min(S.t_s*0.62,t_c*0.62), t4=Math.min(tmax*0.5,0.3*S.L4/S.a4), t5=S.t_s+0.55*(t_r-S.t_s);
+    const x3a=Math.max(S.fanTail*t3,-S.L4);
+    g+=T(S.L1*0.72,S.t_s*0.3,'1','#5b6a80')+T((S.u2+S.Ws)*t2/2,t2,'2','#c2410c')
+      +T((x3a+S.u2*t3)/2,t3,'3','#1d4fa0')+T(-S.L4*0.62,t4,'4','#5b6a80')
+      +T(S.L1-S.Ur*(t5-S.t_s)/2,t5,'5','#b02a5b'); }
+  const lg=[['#d6336c','incident shock'],['#e8590c','reflected shock'],['#475569','contact surface'],['#1c6fd6','expansion fan']];
+  g+=`<rect x="${mL+1}" y="${mT+1}" width="${W-mL-mR-2}" height="13" fill="#fff" fill-opacity="0.88"/>`;
+  let lx=mL+6; lg.forEach(l=>{ g+=`<rect x="${lx}" y="${mT+4}" width="12" height="3" fill="${l[0]}"/><text x="${lx+15}" y="${mT+9}" font-size="10" fill="#5b6a80">${l[1]}</text>`; lx+=l[1].length*6+30; });
+  g+=`<text x="${(mL+W-mR)/2}" y="${H-5}" font-size="11" fill="#5b6a80" text-anchor="middle">position x (m)  —  driver (x&lt;0) · diaphragm at 0 · end wall at x=L₁</text>`;
+  g+=`<text x="13" y="${(mT+H-mB)/2}" font-size="11" fill="#5b6a80" text-anchor="middle" transform="rotate(-90 13 ${(mT+H-mB)/2})">time t (ms)</text>`;
   return `<svg class="plot" style="max-width:720px" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
 }
 function stubeSnapshot(S,g4){
@@ -1586,8 +1973,8 @@ function stubeSnapshot(S,g4){
     else { p=S.p4; Tk=S.T4; }
     pp.push(p/S.p1); tt.push(Tk/S.T1); }
   return `<div style="display:flex;flex-wrap:wrap;gap:10px">`
-    +svgPlot([{x:xs,y:pp,color:'#ff7849'}],{xlabel:'x (m)',ylabel:'p / p₁',ymin:0})
-    +svgPlot([{x:xs,y:tt,color:'#7bdff2'}],{xlabel:'x (m)',ylabel:'T / T₁',ymin:0})+`</div>`;
+    +svgPlot([{x:xs,y:pp,color:'#1c6fd6'}],{xlabel:'x (m)',ylabel:'p / p₁',ymin:0})
+    +svgPlot([{x:xs,y:tt,color:'#e8590c'}],{xlabel:'x (m)',ylabel:'T / T₁',ymin:0})+`</div>`;
 }
 
 /* ---- NONEQUILIBRIUM POST-SHOCK RELAXATION (finite-rate Park, single T) ----
@@ -1823,7 +2210,7 @@ function noneqCard(fs,order){
   const top=chem.includes('s5')?'s5':(chem.includes('s4')?'s4':'s3'); const rt=res[top];
   let Splot='';
   if(rt&&!rt.skip&&!rt.err){
-    const cols={O2:'#7bdff2',N2:'#9aa7bd',NO:'#ffd166',O:'#43d9a3',N:'#ff5d73'};
+    const cols={O2:'#1c6fd6',N2:'#64748b',NO:'#b07a00',O:'#0f8a7e',N:'#d6336c'};
     const ss=[]; for(const s of SPL){ const xs=[],ys=[];
       for(let i=0;i<rt.hist.x.length;i++){ if(rt.hist.x[i]<=xplot){ xs.push(rt.hist.x[i]*1000); ys.push(rt.hist.Y[i][s]); } }
       ss.push({x:xs,y:ys,color:cols[s],label:s}); }
@@ -1869,13 +2256,18 @@ function noneqCard(fs,order){
 }
 
 /* ---- tab switching + wiring ---- */
-let activeTab='isen';
+let activeTab='home';
 const COMPUTE={isen:computeIsen,ns:computeNS,obl:computeObl,cone:computeCone,pm:computePM,aero:computeAll,atm:computeAtm,traj:computeTraj,stube:computeStube};
 function recomputeActive(){ try{ (COMPUTE[activeTab]||(()=>{}))(); }catch(e){ console.error(e); } }
-function showTab(t){ activeTab=t;
+function showTab(t){ if(!document.getElementById('tab-'+t)) t='home'; activeTab=t;
+  document.body.dataset.tab=t;
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+t));
   document.querySelectorAll('#tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  const onBtn=document.querySelector('#tabbar button.on');
+  if(onBtn&&onBtn.scrollIntoView) try{ onBtn.scrollIntoView({block:'nearest',inline:'nearest'}); }catch(e){}
+  try{ history.replaceState(null,'',t==='home'?location.pathname+location.search:'#'+t); }catch(e){}
   if(t!=='aero') recomputeActive();
+  if(typeof uiOnTab==='function') uiOnTab(t);
 }
 document.querySelectorAll('#tabbar button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 // live recompute on input within each tool panel (except aero, which has its own button)
@@ -1900,7 +2292,7 @@ document.getElementById('units').addEventListener('change',()=>{
     const span=el.parentNode.querySelector('.unit'); if(span)span.textContent=U.d[t][next][0]; };
   const atmType={alt:'alt',pres:'pres',temp:'temp',dens:'rho'}[document.getElementById('atm-mode').value];
   [['vel','vel'],['temp','temp'],['pres','pres'],['rn','len'],['tw','temp'],['alt','alt'],
-   ['atm-z',atmType],['tr-rn','len'],['tr-alt','alt'],
+   ['atm-z',atmType],['atm-wind','vel'],['tr-rn','len'],['tr-alt','alt'],
    ['st-p4','pres'],['st-T4','temp'],['st-L4','lenm'],['st-p1','pres'],['st-T1','temp'],['st-L1','lenm']].forEach(conv);
   prevUnits=next; U.sys=next; updateAltReadout(); refreshTrajLabels(); recomputeActive();
 });
@@ -1916,7 +2308,7 @@ document.getElementById('btnCsv').addEventListener('click',()=>{
 document.getElementById('btnPrint').addEventListener('click',()=>window.print());
 // oblique gas/given listeners already covered by panel 'change'; init labels
 refreshTrajLabels();
-showTab('isen');   // default landing tab
+// landing tab (Home, or a #deep-link such as #aero) is opened by initTabs() at the end of the UI layer
 
 /* ---- PWA: offline service worker + install button ---- */
 if('serviceWorker' in navigator){
@@ -1944,6 +2336,508 @@ installBtn.addEventListener('click',async()=>{
   deferredInstall=null;
 });
 window.addEventListener('appinstalled',()=>{ installBtn.style.display='none'; deferredInstall=null; });
+
+/* =========================================================================
+   ===================  UI LAYER — home, glossary, visuals  =================
+   Pure presentation: the physics engine above is untouched.
+   NOTE: thermalLadderCard / ladderW / isenEveryday / nsEveryday / windCard /
+   nf / thermalColor / tempT are function declarations (hoisted) and
+   LADDER_ARGS is a bare `var`, because the engine renders the ladder during
+   the very first computeAll(), before this block has executed.
+   ========================================================================= */
+function nf(v){ return (v==null||!isFinite(v))?'—':Math.round(v).toLocaleString('en-US'); }
+function thermalColor(t,a){              // cold navy -> hot crimson, matches CSS --thermal
+  const S=[[0,30,58,138],[0.14,37,99,235],[0.3,8,145,178],[0.46,22,163,74],[0.61,202,138,4],[0.75,249,115,22],[0.88,220,38,38],[1,157,23,77]];
+  t=Math.max(0,Math.min(1,+t||0));
+  let i=1; while(i<S.length-1 && t>S[i][0]) i++;
+  const A=S[i-1],B=S[i],f=(t-A[0])/((B[0]-A[0])||1);
+  const r=Math.round(A[1]+(B[1]-A[1])*f),g=Math.round(A[2]+(B[2]-A[2])*f),b=Math.round(A[3]+(B[3]-A[3])*f);
+  return a==null?`rgb(${r},${g},${b})`:`rgba(${r},${g},${b},${a})`;
+}
+function tempT(T){ return Math.max(0,Math.min(1,Math.log(Math.max(T,150)/150)/Math.log(40000/150))); }   // log scale 150 K – 40 000 K
+
+/* ---- "How hot is it?" temperature ladder (Aerothermo tab) ---- */
+var LADDER_ARGS;                         // last inputs, so the ladder can be re-laid-out for the screen width
+function ladderW(){
+  const sv=document.querySelector('#ladderCard svg');
+  let w=sv?sv.getBoundingClientRect().width:0;
+  if(!(w>150)){ const o=document.getElementById('out'); w=o?o.clientWidth-76:0; }
+  return w>150?Math.round(Math.max(330,Math.min(1000,w))):760;
+}
+function thermalLadderCard(fs,R,order){
+  LADDER_ARGS=[fs,R,order];
+  const W=ladderW(), x0=16, x1=W-16, narrow=W<600;
+  const X=T=>x0+(x1-x0)*tempT(T);
+  const refs=[[273.15,'water freezes'],[373.15,'water boils'],[933,'aluminium melts'],[1811,'iron melts'],
+              [3695,'tungsten melts'],[5772,"Sun's surface"],[30000,'lightning bolt']];
+  const marks=[{T:fs.T,label:'Freestream air',c:'#475569'}];
+  order.forEach(m=>{ const r=R[m]; if(r&&!r.error&&isFinite(r.T0)) marks.push({T:r.T0,label:MODELS[m].n,c:MODELS[m].c}); });
+  // arrows: coincident ones are stacked one above the other
+  const lastX=[], arrows=marks.map(m=>Object.assign({},m,{x:X(m.T)})).sort((a,b)=>a.x-b.x);
+  arrows.forEach(a=>{ let L=lastX.findIndex(x=>Math.abs(a.x-x)>=13); if(L<0){ L=lastX.length; lastX.push(0); } lastX[L]=a.x; a.L=L; });
+  const yb=16+9*(lastX.length-1);
+  let stops=''; for(let i=0;i<=10;i++) stops+=`<stop offset="${i/10}" stop-color="${thermalColor(i/10)}"/>`;
+  let g=`<defs><linearGradient id="ladG" x1="0" x2="1">${stops}</linearGradient></defs>`;
+  g+=`<rect x="${x0}" y="${yb}" width="${x1-x0}" height="12" rx="6" fill="url(#ladG)"/>`;
+  // reference temperatures below the bar, greedily packed into rows
+  const items=refs.map(([T,l])=>{ const txt=narrow?l:`${l} · ${nf(T)} K`; return {T,txt,x:X(T),w:txt.length*5.7+6}; }).sort((a,b)=>a.x-b.x);
+  const ends=[];
+  items.forEach(it=>{ let k=ends.findIndex(e=>it.x-it.w/2>e+5); if(k<0){ k=ends.length; ends.push(0); } it.row=k; ends[k]=it.x+it.w/2; });
+  const yr=yb+12+17;
+  items.forEach(it=>{ const y=yr+13*it.row, tx=Math.max(it.w/2+1,Math.min(W-it.w/2-1,it.x));
+    g+=`<line x1="${it.x.toFixed(1)}" y1="${yb+12}" x2="${it.x.toFixed(1)}" y2="${y-9}" stroke="#b6c2d1" stroke-width="1"/>`;
+    g+=`<text x="${tx.toFixed(1)}" y="${y}" font-size="10.5" fill="#64748b" text-anchor="middle">${it.txt}</text>`; });
+  const H=yr+13*(ends.length-1)+6;
+  arrows.forEach(a=>{ const tip=yb-1-9*a.L, x=a.x.toFixed(1);
+    if(a.L) g+=`<line x1="${x}" y1="${tip}" x2="${x}" y2="${yb}" stroke="${a.c}" stroke-width="1.4"/>`;
+    g+=`<path d="M${(a.x-6).toFixed(1)},${tip-10} L${(a.x+6).toFixed(1)},${tip-10} L${x},${tip} Z" fill="${a.c}" stroke="#fff" stroke-width="1"><title>${a.label}: ${nf(a.T)} K</title></path>`; });
+  const leg=marks.map((m,i)=>`<span><i style="background:${m.c}"></i>${m.label}${i?'':' (before the shock)'} <b>${nf(m.T)} K</b></span>`).join('');
+  const cmp=T=>T>5772?`${(T/5772).toFixed(1)}× the temperature of the Sun's surface`
+    :T>3695?'hotter than molten tungsten, the most heat-resistant metal'
+    :T>1811?'above the melting point of iron':T>933?'above the melting point of aluminium'
+    :T>373.15?'above the boiling point of water':'only a little warmer than the surrounding air';
+  const mods=marks.slice(1);
+  let sum='';
+  if(mods.length){
+    const hot=mods.reduce((a,b)=>b.T>a.T?b:a);
+    const bestKey=order.includes('s5')?'s5':order[order.length-1];
+    const best=mods.find(m=>m.label===MODELS[bestKey].n);
+    sum=`Air brought to rest at the nose: the <b style="color:${hot.c}">${hot.label}</b> model predicts <b>${nf(hot.T)} K (${nf(hot.T-273.15)} °C)</b> — ${cmp(hot.T)}.`;
+    if(best&&best!==hot&&hot.T-best.T>0.03*hot.T) sum+=` The most realistic model here, <b style="color:${best.c}">${best.label}</b>, gives <b>${nf(best.T)} K (${nf(best.T-273.15)} °C)</b> — ${cmp(best.T)}: energy spent making molecules vibrate and break apart is not available to heat the gas.`;
+  }
+  return `<div class="card" id="ladderCard"><h3>How hot is it? <span class="muted small">air brought to rest at the nose · log temperature scale</span></h3>
+    <svg class="ladder" viewBox="0 0 ${W} ${H}" role="img" aria-label="Temperature ladder comparing the predicted nose temperatures with everyday reference temperatures">${g}</svg>
+    <div class="ladleg">${leg}</div>
+    <p class="ladsum">${sum}</p></div>`;
+}
+function refreshLadder(){
+  const el=document.getElementById('ladderCard'); if(!el||!LADDER_ARGS) return;
+  const sv=el.querySelector('svg'), vb=sv&&sv.viewBox&&sv.viewBox.baseVal; if(!vb) return;
+  const w=sv.getBoundingClientRect().width;
+  if(!(w>150)||Math.abs(vb.width-ladderW())<Math.max(40,0.1*vb.width)) return;
+  el.outerHTML=thermalLadderCard(LADDER_ARGS[0],LADDER_ARGS[1],LADDER_ARGS[2]);
+}
+
+/* ---- everyday interpretation lines ---- */
+function isenEveryday(M,s,g){
+  if(!(M>0)||!s) return '';
+  const air=Math.abs(g-1.4)<0.011, T=288.15, a=Math.sqrt(g*287.05*T), T0=T*s.T0T;
+  let h=`<div class="infobox"><b>Everyday picture:</b> ${air?'air':'a gas with γ = '+g} at 15 °C moving at Mach ${fmt(M,2)}`
+    +(air?` (≈ ${nf(M*a)} m/s or ${nf(M*a*3.6)} km/h at sea level)`:'')
+    +` would warm to <b>${nf(T0)} K (${nf(T0-273.15)} °C)</b> if brought smoothly to rest — at the tip of a pitot tube, say — and its pressure would rise ${fmt(s.p0p,3)}×.`;
+  if(M<0.3) h+=` Its density changes by only ${fmt((s.r0r-1)*100,2)} %, so at speeds like this you can treat it as incompressible, like water.`;
+  else if(M>=1) h+=` To reach this speed the gas must squeeze through a nozzle throat and then flow into a section ${fmt(s.AAs,3)}× the throat area.`;
+  if(air&&M>=5) h+=` (Above about Mach 5 real air stays much cooler than this, because its molecules start to vibrate and break apart — the Aerothermo tab models that.)`;
+  return h+`</div>`;
+}
+function nsEveryday(M1,n,g){
+  if(!(M1>1.0001)||!n) return '';
+  const air=Math.abs(g-1.4)<0.011, T2=288.15*n.T2T1, p2=n.p2p1;
+  return `<div class="infobox"><b>Picture it:</b> ${air?'sea-level air':'a gas with γ = '+g} at 15 °C and 1 atm hitting this shock at Mach ${fmt(M1,2)} comes out at
+    <b>${nf(T2)} K (${nf(T2-273.15)} °C)</b> and <b>${fmt(p2,p2<10?2:1)} atm</b>, squeezed ${fmt(n.r2r1,2)}× denser and slowed to Mach ${fmt(n.M2,2)} —
+    all inside a layer thinner than a human hair. ${fmt((1-n.p02p01)*100,1)} % of its total pressure is lost for good.</div>`;
+}
+
+/* ---- wind pressure on structures (Atmosphere tab, for civil & structural users) ---- */
+function windCard(z){
+  const el=document.getElementById('atm-wind'), lab=document.getElementById('atm-wlab');
+  if(!el) return '';
+  if(lab) lab.textContent='Wind speed ('+U.lab('vel')+')';
+  const V=U.from('vel',+el.value); if(!(V>0)||!isFinite(z)) return '';
+  const a=atmosphere(z), rho=a.p/(R_air*a.T), q=0.5*rho*V*V, qSL=0.5*1.225*V*V, M=V/Math.sqrt(1.4*R_air*a.T);
+  const d=U.sys==='SI'?1:5;
+  return card('Wind pressure on structures <span class="muted small">civil &amp; structural</span>',
+    ftable([row(`Wind (dynamic) pressure q = ½ρV² at ${fmt(U.to('alt',z),2)} ${U.lab('alt')}`,fmt(U.to('pres',q),d),U.lab('pres')),
+            row('Same wind at sea level (ρ = 1.225 kg/m³)',fmt(U.to('pres',qSL),d),U.lab('pres')),
+            row('Wind speed',fmt(V*3.6,1)+' km/h · '+fmt(V*2.23694,1)+' mph',''),
+            row('Mach number of this wind',fmt(M,4))]))
+   +`<div class="note">Design codes build wind loads on exactly this: p<sub>z</sub> = 0.6·V<sub>z</sub>² Pa (IS 875) or 0.613·V² Pa (ASCE 7, SI units), i.e. ½ρV² at sea-level density.
+     Multiply by your shape's pressure or force coefficient and the loaded area to get a force.
+     ${M<0.3?'At M &lt; 0.3 the air is effectively incompressible, so ordinary wind-load formulas apply.':'This wind is fast enough for compressibility to matter — see the Isentropic tab.'}</div>`;
+}
+
+/* ---- glossary ---- */
+const TABNAME={home:'Home',isen:'Isentropic',ns:'Normal shock',obl:'Oblique shock',cone:'Cone',pm:'Expansion fan',aero:'Aerothermo',stube:'Shock tube',atm:'Atmosphere',traj:'Trajectory'};
+const GLOSSARY=[
+ {id:'mach',term:'Mach number (M)',def:'Speed divided by the local speed of sound. M < 1 is subsonic, around 1 transonic, M > 1 supersonic and M > 5 hypersonic.',eg:'Mach 2 means moving twice as fast as sound travels in that air.',tab:'isen'},
+ {id:'regime',term:'Flow regimes',def:'Subsonic (M < 0.8), transonic (0.8–1.2), supersonic (1.2–5) and hypersonic (M > 5). Each brings new physics: shocks appear at transonic speeds, and chemistry starts to matter at hypersonic speeds.',eg:'Airliners cruise transonic; re-entering spacecraft are deeply hypersonic.',tab:'home'},
+ {id:'sound',term:'Speed of sound (a)',def:'How fast tiny pressure waves travel through a gas: a = √(γRT). For a given gas it depends only on temperature — about 340 m/s at 15 °C and about 295 m/s in the cold stratosphere.',eg:'That is why the same aircraft speed is a higher Mach number at altitude.',tab:'atm'},
+ {id:'compressible',term:'Compressible flow',def:'Flow fast enough that the gas density changes noticeably. Below about Mach 0.3 density changes by less than 5 %, so engineers treat air like water (incompressible) — the regime of most civil and hydraulic calculations.',eg:'Wind on a building: incompressible. Air in a jet nozzle: compressible.',tab:'isen'},
+ {id:'static',term:'Static vs. stagnation (total) values',def:'Static = what you would measure moving along with the flow. Stagnation or total = what you get if the flow is brought smoothly to rest, turning all its kinetic energy back into heat and pressure (written with a 0, e.g. T₀, p₀).',eg:'Your hand held out of a car window feels the stagnation pressure.',tab:'isen'},
+ {id:'stagT',term:'Stagnation temperature T₀',def:'The temperature of the gas when it is stopped: T₀ = T + V²/(2cₚ). It is the hottest the gas can get without adding energy — the air temperature right at a vehicle\'s nose.',eg:'Air at 15 °C moving at Mach 2 has T₀ ≈ 245 °C.',tab:'aero'},
+ {id:'kelvin',term:'Kelvin (K) and °C',def:'Absolute temperature: K = °C + 273.15. Gas laws need absolute temperature, so results are in kelvin (or °R in US units).',eg:'288 K = 15 °C, a standard day at sea level.',tab:'home'},
+ {id:'dynp',term:'Dynamic pressure q = ½ρV²',def:'The pressure carried by the motion of the flow. It sets aerodynamic forces — lift, drag — and the wind loads on buildings and bridges.',eg:'Design codes use about 0.6·V² pascals at sea level (V in m/s) as the basic wind pressure.',tab:'atm'},
+ {id:'isentropic',term:'Isentropic flow',def:'Smooth flow with no friction, no heat added and no shocks, so entropy stays constant. A very good model for nozzles, diffusers and most of the flow away from walls and shocks.',eg:'Air speeding up through a well-shaped nozzle.',tab:'isen'},
+ {id:'nozzle',term:'Nozzle throat and area ratio A/A*',def:'A* is the throat area where the flow is exactly Mach 1. To go supersonic a gas must first converge to a throat, then diverge. A/A* tells you how big the duct must be for a given Mach number.',eg:'Rocket nozzles, jet engines and supersonic wind tunnels.',tab:'isen'},
+ {id:'choked',term:'Choked flow',def:'Once the throat reaches Mach 1, lowering the downstream pressure cannot push any more mass through. Used to meter gas flow and to size safety valves, relief valves and orifices.',eg:'A punctured high-pressure gas cylinder leaks at a choked rate.',tab:'isen'},
+ {id:'machangle',term:'Mach angle μ',def:'The angle of the weakest possible disturbance — a Mach wave — in supersonic flow: sin μ = 1/M.',eg:'The faster the flow, the narrower the Mach cone.',tab:'isen'},
+ {id:'shock',term:'Shock wave',def:'An extremely thin layer where the flow slows abruptly and pressure, temperature and density jump. Some energy is lost as entropy rises, so the total pressure always drops across a shock.',eg:'Sonic booms, explosion blast waves, the crack of a whip.',tab:'ns'},
+ {id:'normalshock',term:'Normal shock',def:'A shock standing straight across (perpendicular to) the flow. The flow behind it is always subsonic.',eg:'Right in front of a blunt nose, and inside supersonic engine inlets.',tab:'ns'},
+ {id:'density',term:'Density ratio ρ₂/ρ₁',def:'How much a shock squeezes the gas. For an ideal gas (γ = 1.4) it can never exceed 6; dissociating air can be squeezed 10–15 times.',eg:'Stronger compression means a thinner shock layer.',tab:'ns'},
+ {id:'totalp',term:'Total-pressure loss p₀₂/p₀₁',def:'The fraction of total pressure that survives a shock — a direct measure of wasted energy. Engine inlets keep it near 1 by using several weak oblique shocks instead of one strong normal shock.',eg:'At Mach 2, p₀₂/p₀₁ = 0.72: 28 % of the total pressure is lost.',tab:'ns'},
+ {id:'pitot',term:'Pitot ratio p₀₂/p₁',def:'What a pitot tube (an aircraft speed probe) reads in supersonic flow: the stagnation pressure behind the small normal shock in front of the probe, divided by the static pressure.',eg:'Used to measure supersonic flight Mach number (the Rayleigh–Pitot formula).',tab:'ns'},
+ {id:'oblique',term:'Oblique shock and wave angle β',def:'An angled shock made when supersonic flow is turned by a wedge or ramp through an angle θ. It is weaker than a normal shock, and the flow usually stays supersonic. If θ is too big the shock detaches into a curved bow shock.',eg:'Inlet ramps on fighter jets; blast waves reflecting off walls.',tab:'obl'},
+ {id:'cone',term:'Conical flow (Taylor–Maccoll)',def:'Supersonic flow over a sharp cone. The shock sits closer to the body than for a wedge of the same angle, and the air keeps compressing between shock and surface. C_p is the surface pressure coefficient, (p − p∞)/(½ρV²).',eg:'Rocket and missile noses, bullets.',tab:'cone'},
+ {id:'expansion',term:'Expansion fan (Prandtl–Meyer)',def:'The opposite of a shock: supersonic flow turning around a convex corner smoothly speeds up while its pressure and temperature drop. No energy is lost. ν(M) measures how far a flow has expanded.',eg:'Flow around the shoulder of a projectile; rocket exhaust plumes.',tab:'pm'},
+ {id:'gamma',term:'Ratio of specific heats γ',def:'cₚ/cᵥ — a gas property that controls how strongly a gas heats up when compressed. Air ≈ 1.4, helium ≈ 1.67, steam ≈ 1.3.',eg:'Change γ in the settings bar to model a different gas.',tab:'isen'},
+ {id:'enthalpy',term:'Enthalpy h and total enthalpy h₀',def:'The heat content of a gas per kilogram. Total enthalpy h₀ = h + V²/2 stays constant through shocks and nozzles when no heat is added — the key bookkeeping rule of high-speed flow.',eg:'Returning from orbit, h₀ is about 30 MJ/kg.',tab:'aero'},
+ {id:'ideal',term:'Ideal (perfect) gas',def:'The simplest model: fixed heat capacity and no chemistry. Accurate while air stays below roughly 800–1,000 K.',eg:'Great for wind tunnels, nozzles and supersonic jets; far too hot-headed for re-entry.',tab:'aero'},
+ {id:'realgas',term:'Real gas (molecular vibration)',def:'Above about 800 K air molecules start to vibrate and store energy, so the gas heats up less than the ideal model predicts.',eg:'The “Real gas” column in the Aerothermo tab.',tab:'aero'},
+ {id:'dissociation',term:'Dissociation',def:'Above about 2,500 K oxygen molecules break apart (O₂ → 2O); above about 4,000 K nitrogen does too (N₂ → 2N). This soaks up enormous energy — the main reason real re-entry air is thousands of degrees cooler than ideal-gas predictions. Y(O), Y(N) are the mass fractions of the atoms.',eg:'Compare the Ideal gas and 5-species columns in the Aerothermo tab.',tab:'aero'},
+ {id:'equilibrium',term:'Equilibrium vs. nonequilibrium',def:'Equilibrium: the chemistry has fully caught up with the temperature. Nonequilibrium: reactions lag behind because there is not enough time or enough collisions — typical of thin shock layers at high altitude.',eg:'The Aerothermo tab shows both: equilibrium bounds plus finite-rate relaxation.',tab:'aero'},
+ {id:'twotemp',term:'Two-temperature model (T–Tᵥ)',def:'Right behind a strong shock the molecules\' vibration lags their motion, so the gas briefly has two temperatures until collisions even them out.',eg:'Shown as dashed curves in the nonequilibrium card.',tab:'aero'},
+ {id:'heatflux',term:'Heat flux q̇',def:'The rate at which heat flows into a surface per unit area (W/m² or W/cm²) — what a heat shield must survive. Stagnation heat flux grows roughly with V³ and falls with the square root of the nose radius.',eg:'Blunt noses heat less than sharp ones — that is why capsules are round.',tab:'aero'},
+ {id:'standoff',term:'Shock stand-off distance Δ',def:'The gap between a curved bow shock and a blunt nose. Hotter, denser shock layers make it thinner.',eg:'Real-gas chemistry can cut the stand-off by half or more.',tab:'aero'},
+ {id:'catalytic',term:'Catalytic wall',def:'Whether a surface helps split atoms recombine on it, releasing their stored energy as extra heating.',eg:'Non-catalytic coatings protect re-entry vehicles.',tab:'aero'},
+ {id:'reynolds',term:'Reynolds number Re (and viscosity)',def:'The ratio of inertia to viscous forces, Re = ρVL/μ, where μ is the viscosity. Low Re means smooth (laminar) flow, high Re turbulent — the same number used for pipe and channel flow.',eg:'Pipe flow turns turbulent around Re ≈ 2,300.',tab:'aero'},
+ {id:'atmosphere',term:'Standard atmosphere',def:'An agreed reference for how temperature, pressure and density change with altitude (US Standard Atmosphere 1976).',eg:'Pressure roughly halves every 5.5 km of height.',tab:'atm'},
+ {id:'shocktube',term:'Shock tube and reflected shock',def:'A tube with high-pressure “driver” gas and low-pressure “driven” gas separated by a diaphragm. Bursting it launches a shock; reflecting that shock off the closed end creates a short-lived, very hot, high-pressure gas sample (region 5).',eg:'Used to test structures against blast and to study high-temperature chemistry.',tab:'stube'},
+ {id:'contact',term:'Contact surface and expansion fan (shock tube)',def:'The contact surface separates driver and driven gas — same pressure and velocity on both sides. The expansion fan travels back into the driver gas, cooling it.',eg:'Follow both on the x–t diagram in the Shock tube tab.',tab:'stube'}
+];
+const GLOSS_BY_ID={}; GLOSSARY.forEach(g=>{ GLOSS_BY_ID[g.id]=g; });
+function renderGloss(filter){
+  const q=(filter||'').trim().toLowerCase(), list=document.getElementById('glossList'); if(!list) return;
+  const items=GLOSSARY.filter(g=>!q||(g.term+' '+g.def+' '+(g.eg||'')).toLowerCase().includes(q));
+  list.innerHTML=items.map(g=>`<div class="gterm" id="g-${g.id}"><h4>${g.term}</h4><p>${g.def}</p>${g.eg?`<p class="eg">${g.eg}</p>`:''}`
+    +(g.tab&&g.tab!=='home'?`<button class="glink" type="button" data-go="${g.tab}">Open the ${TABNAME[g.tab]} tool →</button>`:'')+`</div>`).join('')
+    ||'<p class="muted">No matching terms — try a shorter word.</p>';
+}
+function openGloss(id){
+  const d=document.getElementById('gloss'), s=document.getElementById('scrim'), q=document.getElementById('glossSearch');
+  if(!d) return;
+  if(q&&q.value){ q.value=''; renderGloss(''); }
+  d.classList.add('open'); s.classList.add('on'); d.setAttribute('aria-hidden','false'); document.body.classList.add('noscroll');
+  if(id){ const el=document.getElementById('g-'+id);
+    if(el) setTimeout(()=>{ el.scrollIntoView({block:'center',behavior:'smooth'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1900); },140); }
+  else if(q&&window.matchMedia&&matchMedia('(pointer:fine)').matches) setTimeout(()=>q.focus({preventScroll:true}),260);
+}
+function closeGloss(){
+  const d=document.getElementById('gloss'); if(!d||!d.classList.contains('open')) return;
+  d.classList.remove('open'); document.getElementById('scrim').classList.remove('on');
+  d.setAttribute('aria-hidden','true'); document.body.classList.remove('noscroll');
+}
+
+/* ---- auto-tooltips: dotted-underline result labels that explain themselves ---- */
+const TERM_RULES=[
+ [/Pitot/i,'pitot'],
+ [/Total-pressure|p₀₂\/p₀₁/,'totalp'],
+ [/Reservoir|driven|driver|behind incident|Diaphragm|Incident shock|Reflected shock|Reflected-shock|p₅|T₅|p₄/i,'shocktube'],
+ [/Contact/i,'contact'],
+ [/Cone half|half-angle|Surface Mach|surface pressure|C_p/i,'cone'],
+ [/p₂\/p₁|T₂\/T₁/,'normalshock'],
+ [/Stagnation temp|T₀\/T|T\/T₀|T₀ stag/i,'stagT'],
+ [/Stagnation press|p₀\/p|p\/p₀|ρ₀\/ρ|ρ\/ρ₀|Static temp|Static pres/i,'static'],
+ [/Mach angle/i,'machangle'],
+ [/Prandtl|ν\(M/,'expansion'],
+ [/Area ratio|A\/A\*/,'nozzle'],
+ [/Wave angle|deflection|θ_max|Normal-component/i,'oblique'],
+ [/Density ratio|ρ₂\/ρ/,'density'],
+ [/Stand-off|^Δ$/i,'standoff'],
+ [/Fay|Sutton|q̇|heat flux/i,'heatflux'],
+ [/Reynolds|viscosity/i,'reynolds'],
+ [/enthalpy/i,'enthalpy'],
+ [/Dynamic press|Wind \(dynamic\)/i,'dynp'],
+ [/Speed of sound/i,'sound'],
+ [/dissociation|Y\(O\)|Y\(N\)|Y\(NO\)/i,'dissociation'],
+ [/Post-shock/i,'shock'],
+ [/altitude|p_SL|ρ_SL/i,'atmosphere'],
+ [/Mach/i,'mach'],
+ [/^Temperature|°C/i,'kelvin']
+];
+const TERM_REMAP={'tab-pm':{normalshock:'expansion',shock:'expansion',density:'expansion'},'tab-obl':{normalshock:'oblique'},
+  'tab-cone':{oblique:'cone'},'tab-stube':{normalshock:'shocktube'},'tab-atm':{density:'atmosphere'}};
+function annotate(root){
+  (root||document).querySelectorAll('.tablewrap td:first-child, .stat .k').forEach(el=>{
+    if(el.dataset.term!==undefined) return;
+    const txt=el.textContent.trim(); let id='';
+    for(const [re,t] of TERM_RULES){ if(re.test(txt)){ id=t; break; } }
+    const panel=el.closest('.tabpanel'), rm=panel&&TERM_REMAP[panel.id];
+    if(id&&rm&&rm[id]) id=rm[id];
+    el.dataset.term=id;
+    const gl=GLOSS_BY_ID[id];
+    if(gl){ el.classList.add('term'); el.title=gl.term+' — '+gl.def+'  (click for more)'; }
+  });
+}
+let _annQueued=false;
+function scheduleAnnotate(){ if(_annQueued) return; _annQueued=true; setTimeout(()=>{ _annQueued=false; try{ annotate(document); }catch(e){ console.error(e); } },0); }
+function startAnnotObserver(){
+  if(!('MutationObserver' in window)) return;
+  const mo=new MutationObserver(ms=>{ for(const m of ms){ if(m.addedNodes&&m.addedNodes.length){ scheduleAnnotate(); return; } } });
+  document.querySelectorAll('.tabpanel:not(#tab-home)').forEach(p=>mo.observe(p,{childList:true,subtree:true}));
+}
+
+/* ---- navigation: cards, glossary links, deep links (#isen, #aero …) ---- */
+function brandH(){ const b=document.querySelector('.brand'); return b?b.offsetHeight:0; }
+function goTool(t){
+  closeGloss(); showTab(t);
+  const top=t==='home'?0:brandH();
+  if(Math.abs(window.scrollY-top)>2) window.scrollTo({top,behavior:'smooth'});
+}
+function initTabs(){
+  const h=(location.hash||'').slice(1);
+  showTab(h&&document.getElementById('tab-'+h)?h:'home');
+}
+window.addEventListener('hashchange',()=>{ const h=(location.hash||'').slice(1); if(h&&h!==activeTab&&document.getElementById('tab-'+h)) showTab(h); });
+document.addEventListener('click',e=>{
+  const go=e.target.closest('[data-go]'); if(go){ e.preventDefault(); goTool(go.dataset.go); return; }
+  const tm=e.target.closest('.term'); if(tm&&tm.dataset.term) openGloss(tm.dataset.term);
+});
+document.getElementById('tabbar').addEventListener('click',e=>{
+  if(e.target.closest('button') && window.scrollY>brandH()+2) window.scrollTo({top:brandH(),behavior:'smooth'});
+});
+document.getElementById('btnGloss').addEventListener('click',()=>openGloss());
+document.getElementById('ctaGloss').addEventListener('click',()=>openGloss());
+document.getElementById('ctaTools').addEventListener('click',()=>document.getElementById('toolsSect').scrollIntoView({behavior:'smooth',block:'start'}));
+document.getElementById('glossClose').addEventListener('click',closeGloss);
+document.getElementById('scrim').addEventListener('click',closeGloss);
+document.getElementById('glossSearch').addEventListener('input',e=>renderGloss(e.target.value));
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeGloss(); });
+let _ladT=0;
+window.addEventListener('resize',()=>{ clearTimeout(_ladT); _ladT=setTimeout(()=>{ if(activeTab==='aero') refreshLadder(); },180); });
+
+/* =========================================================================
+   HOME · live flow visualizer
+   A 2-D blunt body in a uniform stream. Supersonic: undisturbed flow up to a
+   Billig bow shock (Δ/R = 0.143·e^(3.24/M²), Rc/R = 1.143·e^(0.54/(M−1)^1.2));
+   across it the shock-normal velocity drops by the normal-shock ratio.
+   Behind it / subsonic: potential flow around a circle. Colour = temperature
+   from energy conservation T = T∞ + (T₀ − T∞)(1 − V²/U²), floored by each
+   streak's entropy-layer temperature T∞·(p₀₂/p₀₁)^(−(γ−1)/γ). T₀ comes from
+   the engine: 5-species equilibrium air (runModel) or the ideal gas.
+   ========================================================================= */
+let HERO=null, AERO_READY=false;
+function uiOnTab(t){
+  try{ if(HERO) HERO.setActive(t==='home'); }catch(e){ console.error(e); }
+  if(t!=='aero') return;
+  if(!AERO_READY){ AERO_READY=true; try{ computeAll(); }catch(e){ console.error(e); } }   // first visit: compute now
+  else setTimeout(()=>{ try{ refreshLadder(); }catch(e){ console.error(e); } },0);
+}
+function initHero(){
+  const cv=document.getElementById('heroCanvas'); if(!cv||!cv.getContext) return null;
+  const ctx=cv.getContext('2d'); if(!ctx) return null;
+  const $=id=>document.getElementById(id);
+  const slider=$('heroMach');
+  const reduce=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const ALT=30, atm=atmosphere(ALT), Tinf=atm.T, pinf=atm.p, ainf=Math.sqrt(1.4*R_air*Tinf);
+  const hs=T=>Math.max(0,Math.min(1,Math.log(Math.max(T,200)/200)/Math.log(50)));   // colour scale: 200 K – 10 000 K, log
+  const FONT='600 11px Inter, "Segoe UI", system-ui, sans-serif', FONTB='800 12px Inter, "Segoe UI", system-ui, sans-serif';
+  const LUT=[], BK=[]; for(let i=0;i<128;i++){ LUT.push(thermalColor(i/127,0.92)); BK.push([]); }
+  const LIKE=[[0,'a high-speed train or hurricane-force wind'],[0.27,'a Formula 1 car at top speed'],[0.45,'a propeller airliner'],
+    [0.75,'a jet airliner at cruise'],[0.97,'breaking the sound barrier'],[1.3,'a fighter jet'],[1.9,'Concorde'],[2.9,'the SR-71 Blackbird'],
+    [4.5,'a hypersonic missile'],[6.2,'the X-15 rocket plane'],[9,'the X-43A scramjet'],[13,'the Space Shuttle in mid re-entry'],
+    [21,'a spacecraft returning from orbit'],[28,'a capsule returning from the Moon']];
+  let W=0,H=0,DPR=1,R=40,cx=0,cy=0,Ub=130,Us=130,bg=null;
+  const speedFor=m=>Ub*Math.max(0.62,Math.min(1.5,0.55+0.25*Math.log(1+m)));   // on-screen stream speed grows with Mach
+  let M=7, gas='real', T0=Tinf, T0real=Tinf, sp=null, active=false, visible=true, raf=0, last=0, introDone=false, introOn=false;
+  const P=[], cache=new Map();
+  const machOf=v=>0.2*Math.pow(150,v/1000), sliderOf=m=>Math.round(1000*Math.log(m/0.2)/Math.log(150));
+  const T0ideal=()=>Tinf*(1+0.2*M*M);
+
+  function insideBody(x,y){ const X=x-cx,Y=y-cy; return X<0?(X*X+Y*Y<(R+1)*(R+1)):Math.abs(Y)<R+1; }
+  function spawn(anywhere){
+    for(let k=0;k<25;k++){ const x=anywhere?Math.random()*W:-Math.random()*40, y=Math.random()*H;
+      if(!insideBody(x,y)) return {x,y,vx:Us,vy:0,k:1,Te:Tinf,vmax:Us,behind:false,T:Tinf}; }
+    return {x:-10,y:Math.random()*H,vx:Us,vy:0,k:1,Te:Tinf,vmax:Us,behind:false,T:Tinf};
+  }
+  function makeBg(){
+    bg=document.createElement('canvas'); bg.width=Math.round(W*DPR); bg.height=Math.round(H*DPR);
+    const b=bg.getContext('2d'); b.setTransform(DPR,0,0,DPR,0,0);
+    const lg=b.createLinearGradient(0,0,0,H); lg.addColorStop(0,'#fbfdff'); lg.addColorStop(1,'#edf3fb');
+    b.fillStyle=lg; b.fillRect(0,0,W,H);
+    b.fillStyle='rgba(30,58,138,0.075)';
+    for(let y=11;y<H;y+=22) for(let x=11;x<W;x+=22) b.fillRect(x,y,1.3,1.3);
+  }
+  function resize(){
+    const r=cv.getBoundingClientRect(); if(r.width<20||r.height<20) return false;
+    DPR=Math.min(window.devicePixelRatio||1,2); W=r.width; H=r.height;
+    cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+    R=Math.max(24,Math.min(W*0.095,H*0.16)); cx=W*0.66; cy=H*0.5; Ub=Math.max(110,W*0.22); Us=speedFor(M);
+    makeBg();
+    const n=Math.round(Math.max(160,Math.min(420,W*H/520)));
+    P.length=0; for(let i=0;i<n;i++) P.push(spawn(true));
+    for(let i=0;i<80;i++) step(1/30);
+    return true;
+  }
+  function setShock(){
+    if(M>1.0001){
+      const dRaw=0.143*Math.exp(3.24/(M*M)), rc=1.143*Math.exp(0.54/Math.pow(M-1,1.2)), b=Math.asin(1/M), tb=Math.tan(b);
+      sp={d:Math.min(dRaw,2.3),dRaw,rc:Math.min(rc,80),cot2:1/(tb*tb),tan2:tb*tb,fade:Math.min(1,(M-1)/0.12)};
+    } else sp=null;
+  }
+  function shockX(y){ const yy=(y-cy)/R; return cx+R*(-(1+sp.d)+sp.rc*sp.cot2*(Math.sqrt(1+yy*yy*sp.tan2/(sp.rc*sp.rc))-1)); }
+  function shockSlope(y){ const yy=(y-cy)/R; return yy/(sp.rc*Math.sqrt(1+yy*yy*sp.tan2/(sp.rc*sp.rc))); }   // dx/dy
+  function baseFlow(x,y){
+    const X=x-cx, Y=y-cy, R2=R*R;
+    if(X>=0){ const yy=Math.max(Math.abs(Y),R); return [Us*(1+(R2/(yy*yy))*Math.exp(-X/(1.6*R))),0]; }   // along the body
+    const r2=X*X+Y*Y, r4=r2*r2;
+    return [Us*(1-R2*(X*X-Y*Y)/r4), -Us*2*R2*X*Y/r4];                                                   // around the nose
+  }
+  function cross(y){        // [velocity factor, entropy-layer temperature, post-shock speed] for a streak crossing the shock at y
+    const s=shockSlope(y), n=Math.sqrt(1+s*s), sinS=1/n, Mn=M*sinS;
+    let vn=Us*sinS, Te=Tinf; const vt=Us*s/n;
+    if(Mn>1){ const m2=Mn*Mn; vn*=(0.4*m2+2)/(2.4*m2);
+      const pr=Math.pow(2.4*m2/(0.4*m2+2),3.5)*Math.pow(2.4/(2.8*m2-0.4),2.5);
+      Te=Math.min(Tinf*Math.pow(pr,-0.4/1.4),0.85*T0ideal()); }
+    const vp=Math.hypot(vn,vt), f=baseFlow(shockX(y)+0.5,y), vb=Math.hypot(f[0],f[1])||Us;
+    return [Math.max(0.05,Math.min(1.3,vp/vb)),Te,vp];
+  }
+  function step(dt){
+    const Ti=T0ideal(), scale=(T0-Tinf)/((Ti-Tinf)||1);
+    for(let i=0;i<P.length;i++){
+      const p=P[i]; let behind=false;
+      if(sp){ behind=p.x>=shockX(p.y);
+        if(behind&&!p.behind){ const c=cross(p.y); p.k=c[0]; p.Te=Tinf+(c[1]-Tinf)*scale; p.vmax=c[2]; } }
+      if(!behind){ p.k=1; p.Te=Tinf; p.vmax=Us; }
+      p.behind=behind;
+      let vx,vy;
+      if(sp&&!behind){ vx=Us; vy=0; }                       // supersonic: undisturbed until the shock
+      else{ const f=baseFlow(p.x,p.y); vx=f[0]*p.k; vy=f[1]*p.k;
+        let sv=Math.hypot(vx,vy);
+        if(sp){ const cap=p.vmax+(Us-p.vmax)*0.5; if(sv>cap){ vx*=cap/sv; vy*=cap/sv; sv=cap; } }   // shock-layer gas stays slow & hot
+        const vmin=0.07*Us;
+        if(sv<vmin){ vy=(p.y>=cy?1:-1)*vmin; if(vx<0) vx=0; } }   // creep round the stagnation point
+      p.x+=vx*dt; p.y+=vy*dt; p.vx=vx; p.vy=vy;
+      const X=p.x-cx, Y=p.y-cy;
+      if(X<0){ const r=Math.hypot(X,Y); if(r<R+0.6){ const s=(R+0.6)/(r||1); p.x=cx+X*s; p.y=cy+Y*s; } }
+      else if(Math.abs(Y)<R+0.6){ p.y=cy+(Y>=0?1:-1)*(R+0.6); }
+      const V2=(vx*vx+vy*vy)/(Us*Us);
+      p.T=Math.max((sp&&!behind)?Tinf:Tinf+(T0-Tinf)*Math.max(0,1-V2),p.Te);
+      if(p.x>W+24||p.x<-70||p.y<-24||p.y>H+24) P[i]=spawn(false);
+    }
+  }
+  function drawBody(tT,heat){
+    const body=new Path2D();
+    body.moveTo(cx,cy-R); body.arc(cx,cy,R,-Math.PI/2,Math.PI/2,true); body.lineTo(W+30,cy+R); body.lineTo(W+30,cy-R); body.closePath();
+    const lg=ctx.createLinearGradient(0,cy-R,0,cy+R);
+    lg.addColorStop(0,'#f1f5f9'); lg.addColorStop(0.45,'#cbd5e1'); lg.addColorStop(1,'#8796ab');
+    ctx.save(); ctx.fillStyle=lg; ctx.fill(body); ctx.clip(body);
+    const hg=ctx.createRadialGradient(cx-R,cy,0,cx-R,cy,R*1.25);
+    hg.addColorStop(0,thermalColor(tT,0.18+0.76*heat)); hg.addColorStop(0.6,thermalColor(tT,0.22*heat)); hg.addColorStop(1,thermalColor(tT,0));
+    ctx.fillStyle=hg; ctx.fillRect(cx-R-2,cy-R-2,R*2.6,R*2+4);
+    ctx.restore();
+    ctx.strokeStyle='rgba(71,85,105,0.9)'; ctx.lineWidth=1.3; ctx.stroke(body);
+    ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=1.3; ctx.beginPath(); ctx.arc(cx,cy,R-3,-Math.PI*0.88,-Math.PI*0.62); ctx.stroke();
+  }
+  function draw(){
+    if(!W) return;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.clearRect(0,0,W,H); if(bg) ctx.drawImage(bg,0,0,W,H);
+    const tT=hs(T0), tI=hs(Tinf), heat=Math.max(0,Math.min(1,(tT-tI)/(0.97-tI)));
+    const nx=cx-R, gr=R*(1.35+(sp?sp.d:0.25)), rg=ctx.createRadialGradient(nx,cy,R*0.2,nx,cy,gr);
+    rg.addColorStop(0,thermalColor(tT,0.06+0.5*heat)); rg.addColorStop(1,thermalColor(tT,0));
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(nx,cy,gr,0,Math.PI*2); ctx.fill();
+    if(sp){
+      const yA=cy-H*0.75, yB=cy+H*0.75, path=new Path2D(); let first=true;
+      for(let y=yA;y<=yB;y+=3){ const x=shockX(y); if(first){ path.moveTo(x,y); first=false; } else path.lineTo(x,y); }
+      ctx.save(); ctx.globalAlpha=sp.fade; ctx.lineJoin='round'; ctx.lineCap='round';
+      ctx.strokeStyle=thermalColor(tT,0.12+0.14*heat); ctx.lineWidth=16; ctx.stroke(path);
+      ctx.strokeStyle=thermalColor(tT,0.26+0.26*heat); ctx.lineWidth=5; ctx.stroke(path);
+      ctx.strokeStyle='rgba(30,41,59,0.82)'; ctx.lineWidth=1.6; ctx.stroke(path);
+      ctx.restore();
+    }
+    for(const b of BK) b.length=0;
+    for(const p of P) BK[Math.max(0,Math.min(127,Math.round(hs(p.T)*127)))].push(p);
+    ctx.lineCap='round'; ctx.lineWidth=2;
+    for(let i=0;i<128;i++){ const b=BK[i]; if(!b.length) continue;
+      ctx.strokeStyle=LUT[i]; ctx.beginPath();
+      for(const p of b){ ctx.moveTo(p.x-p.vx*0.1,p.y-p.vy*0.1); ctx.lineTo(p.x+0.01,p.y); }
+      ctx.stroke(); }
+    drawBody(tT,heat);
+    ctx.font=FONT; ctx.fillStyle='rgba(51,65,85,0.88)'; ctx.textAlign='left';
+    ctx.fillText('freestream air · '+nf(Tinf)+' K at 30 km  →',12,20);
+    if(sp&&sp.fade>0.4){ const y=cy-Math.min(H*0.4,R*1.9), x=shockX(y); if(x>110){ ctx.textAlign='right'; ctx.fillText('bow shock',x-8,y); } }
+    else if(!sp){ ctx.textAlign='right'; ctx.fillText('no shock wave below Mach 1',cx-R-12,cy-R*1.45); }
+    ctx.font=FONTB; ctx.textAlign='center'; ctx.fillStyle='rgba(15,27,45,0.9)';
+    ctx.fillText('nose ≈ '+nf(T0)+' K',cx,Math.min(H-8,cy+R+20));
+  }
+  function stagReal(m){
+    const key=m.toPrecision(3); if(cache.has(key)) return cache.get(key);
+    let T=null;
+    try{ const r=runModel('s5',fsFrom(Tinf,pinf,m*ainf),{Rn:0.1,bodyType:'sphere',Tw:300,catal:'noncat'}); if(r&&isFinite(r.T0)) T=r.T0; }catch(e){ T=null; }
+    if(T==null) T=Tinf*(1+0.2*m*m);
+    cache.set(key,T); return T;
+  }
+  function explain(m){
+    if(m<0.3) return 'Air flows smoothly around the body and barely compresses. Below about Mach 0.3 engineers treat air like water (incompressible) — the world of wind loads, ventilation and most civil and hydraulic formulas.';
+    if(m<0.8) return 'The air now compresses noticeably as it squeezes past the body, so compressible-flow formulas are needed — but there are no shock waves yet.';
+    if(m<1.2) return 'Transonic: patches of supersonic flow and weak shocks appear and drag rises steeply — the old “sound barrier”.';
+    if(m<5) return 'Supersonic: the air ahead can\'t “hear” the body coming, so it piles up into a bow shock — a paper-thin jump in pressure and temperature. That jump is what you hear as a sonic boom.';
+    return 'Hypersonic: the shock hugs the nose and the air behind it gets hot enough to tear molecules apart (dissociation), which soaks up energy. Switch between “Real air” and “Ideal gas” to see how much cooler real air stays.';
+  }
+  function readouts(){
+    const reg=M<0.8?'Subsonic':M<1.2?'Transonic':M<5?'Supersonic':'Hypersonic';
+    $('heroM').textContent='M '+(M<1?M.toFixed(2):M<10?M.toFixed(1):M.toFixed(0));
+    const er=$('heroRegime'); er.textContent=reg; er.className='rv '+({Subsonic:'rg-sub',Transonic:'rg-tran',Supersonic:'rg-sup',Hypersonic:'rg-hyp'})[reg];
+    let like=LIKE[0][1]; for(const [m,t] of LIKE) if(M>=m) like=t;
+    $('heroLike').textContent='like '+like;
+    const V=M*ainf; $('heroSpeed').textContent=nf(V)+' m/s'; $('heroKmh').textContent=nf(V*3.6)+' km/h · '+nf(V*2.23694)+' mph';
+    const Ti=T0ideal(), Ts=gas==='real'?T0real:Ti, same=Math.abs(T0real-Ti)<0.02*Ti;
+    $('heroT').textContent=nf(Ts)+' K';
+    $('heroT2').textContent='≈ '+nf(Ts-273.15)+' °C · '+(same?'real air and an ideal gas agree here'
+      :gas==='real'?'an ideal gas would reach '+nf(Ti)+' K':'real air reaches only '+nf(T0real)+' K');
+    if(sp){ const dcm=sp.dRaw*10; $('heroShock').textContent=(dcm<10?dcm.toFixed(1):nf(dcm))+' cm ahead';
+            $('heroShock2').textContent='of a 10 cm-radius nose (Billig correlation)'; }
+    else { $('heroShock').textContent='None'; $('heroShock2').textContent='no shock wave below Mach 1'; }
+    $('heroExplain').textContent=explain(M);
+    const mk=$('heroMark'); mk.style.left=(hs(Ts)*100).toFixed(2)+'%'; mk.firstChild.textContent='nose · '+nf(Ts)+' K';
+  }
+  function applyMach(m){
+    M=m; Us=speedFor(M); setShock(); T0real=stagReal(M); T0=gas==='real'?T0real:T0ideal();
+    for(const p of P) p.behind=false;     // re-test every streak against the new shock
+    readouts(); if(reduce||!raf) draw();
+  }
+  function frame(ts){
+    raf=0;
+    if(!active||!visible||document.hidden) return;
+    const dt=last?Math.min(0.05,(ts-last)/1000):1/60; last=ts;
+    step(dt); draw();
+    raf=requestAnimationFrame(frame);
+  }
+  function intro(){                     // first view: sweep the speed up so the bow shock visibly forms
+    if(introDone||reduce) return; introDone=true; introOn=true;
+    const v0=sliderOf(0.5), v1=sliderOf(7), D=2800; let t0=0;
+    function tick(now){
+      if(!introOn) return; if(!t0) t0=now;
+      const u=Math.min(1,(now-t0)/D), e=u<0.5?2*u*u:1-Math.pow(-2*u+2,2)/2, v=Math.round(v0+(v1-v0)*e);
+      if(+slider.value!==v){ slider.value=v; applyMach(machOf(v)); }
+      if(u<1) requestAnimationFrame(tick); else introOn=false;
+    }
+    requestAnimationFrame(tick);
+  }
+  function kick(){
+    if(!W&&!resize()) return;
+    if(reduce){ draw(); return; }
+    if(!raf&&active&&visible&&!document.hidden){ last=0; raf=requestAnimationFrame(frame); intro(); }
+  }
+  function setActive(on){ active=!!on; if(active) kick(); }
+  const stopIntro=()=>{ introOn=false; introDone=true; };
+  const ticks=$('heroTicks');
+  if(ticks) ticks.innerHTML=[[200,'200 K'],[500,'500'],[1000,'1,000'],[2000,'2,000'],[5000,'5,000'],[10000,'10,000 K']]
+    .map(([T,l])=>`<span style="left:${(hs(T)*100).toFixed(1)}%">${l}</span>`).join('');
+  slider.value=sliderOf(7);
+  ['pointerdown','keydown','touchstart'].forEach(ev=>slider.addEventListener(ev,stopIntro,{passive:true}));
+  slider.addEventListener('input',()=>{ stopIntro(); applyMach(machOf(+slider.value)); });
+  document.querySelectorAll('#heroGas button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('#heroGas button').forEach(x=>x.classList.toggle('on',x===b));
+    gas=b.dataset.g; T0=gas==='real'?T0real:T0ideal(); for(const p of P) p.behind=false;
+    readouts(); if(reduce||!raf) draw();
+  }));
+  if('ResizeObserver' in window) new ResizeObserver(()=>{ if(resize()&&!raf) draw(); }).observe(cv);
+  else window.addEventListener('resize',()=>{ if(resize()) draw(); });
+  if('IntersectionObserver' in window) new IntersectionObserver(es=>{ visible=es[0].isIntersecting; if(visible) kick(); },{threshold:0.02}).observe(cv);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) kick(); });
+  applyMach(7);
+  return {setActive,
+    get state(){ return {M,gas,T0,T0real,particles:P.length,running:!!raf,intro:introOn,W,H}; },
+    setMach(m){ stopIntro(); slider.value=sliderOf(m); applyMach(machOf(sliderOf(m))); }};
+}
+
+/* ---- start the UI layer ---- */
+renderGloss('');
+startAnnotObserver();
+annotate(document);
+try{ HERO=initHero(); }catch(e){ console.error('hero:',e); }
+initTabs();
 </script>
 
 <!-- Visitor analytics (GoatCounter — privacy-friendly, no cookies) -->
